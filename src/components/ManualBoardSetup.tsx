@@ -14,6 +14,19 @@ const ManualBoardSetup = () => {
   // Calculate progress percentage
   const progressPercentage = (manualNumbers.length / 25) * 100;
   
+  // Handle number selection
+  const handleNumberClick = (num: number) => {
+    if (manualNumbers.includes(num)) return;
+    addManualNumber(num);
+  };
+
+  // Handle board creation
+  const handleCreateBoard = () => {
+    if (manualNumbers.length === 25) {
+      finishManualSetup();
+    }
+  };
+  
   return (
     <div className="w-full max-w-md mx-auto">
       <Card className="bg-bingo-card border-4 border-bingo-border shadow-lg p-6">
@@ -37,7 +50,7 @@ const ManualBoardSetup = () => {
           {numbers.map((num) => (
             <button
               key={num}
-              onClick={() => addManualNumber(num)}
+              onClick={() => handleNumberClick(num)}
               disabled={manualNumbers.includes(num)}
               className={`w-12 h-12 flex items-center justify-center rounded-md text-lg font-semibold transition-all 
                 ${manualNumbers.includes(num) 
@@ -52,14 +65,14 @@ const ManualBoardSetup = () => {
         
         <div className="mt-8 flex justify-center">
           <Button
-            onClick={finishManualSetup}
+            onClick={handleCreateBoard}
             disabled={manualNumbers.length !== 25}
             size="lg"
             className={`bg-bingo-border hover:bg-bingo-border/80 text-white font-bold ${
-              manualNumbers.length !== 25 ? 'opacity-50' : 'animate-pulse'
+              manualNumbers.length === 25 ? 'animate-pulse' : 'opacity-50'
             }`}
           >
-            {manualNumbers.length === 25 ? 'Create My Board' : `Select All 25 Numbers First`}
+            {manualNumbers.length === 25 ? 'Create My Board' : 'Select All 25 Numbers First'}
           </Button>
         </div>
       </Card>
