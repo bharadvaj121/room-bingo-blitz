@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,34 +62,60 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+                // Custom bingo colors
+                bingo: {
+                    background: '#eae0c8',
+                    card: '#d2b48c',
+                    cardStripe1: '#deb887',
+                    cardStripe2: '#f5deb3',
+                    border: '#8b0000',
+                    text: '#4b3621',
+                    accent: '#daa520',
+                    win: '#FEF7CD',
+                    marked: '#f0f0f0'
+                }
 			},
+            keyframes: {
+                'accordion-down': {
+                    from: {
+                        height: '0'
+                    },
+                    to: {
+                        height: 'var(--radix-accordion-content-height)'
+                    }
+                },
+                'accordion-up': {
+                    from: {
+                        height: 'var(--radix-accordion-content-height)'
+                    },
+                    to: {
+                        height: '0'
+                    }
+                },
+                'flash': {
+                    '0%, 100%': { opacity: '1' },
+                    '50%': { opacity: '0.5' }
+                },
+                'glow': {
+                    '0%, 100%': {
+                        textShadow: '0 0 5px #FEF7CD, 0 0 10px #FEF7CD'
+                    },
+                    '50%': {
+                        textShadow: '0 0 20px #FEF7CD, 0 0 30px #FEF7CD'
+                    }
+                }
+            },
+            animation: {
+                'accordion-down': 'accordion-down 0.2s ease-out',
+                'accordion-up': 'accordion-up 0.2s ease-out',
+                'flash': 'flash 1s infinite alternate',
+                'glow': 'glow 1.5s infinite alternate'
+            },
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
-			},
-			keyframes: {
-				'accordion-down': {
-					from: {
-						height: '0'
-					},
-					to: {
-						height: 'var(--radix-accordion-content-height)'
-					}
-				},
-				'accordion-up': {
-					from: {
-						height: 'var(--radix-accordion-content-height)'
-					},
-					to: {
-						height: '0'
-					}
-				}
-			},
-			animation: {
-				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
 			}
 		}
 	},
