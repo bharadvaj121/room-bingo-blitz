@@ -1,4 +1,3 @@
-
 import React from "react";
 import { GameProvider, useGame } from "@/contexts/GameContext";
 import RoomJoin from "@/components/RoomJoin";
@@ -19,8 +18,9 @@ const GameRoom: React.FC = () => {
     resetGame
   } = useGame();
 
-  if (!roomId || !currentPlayer) return null;
+  if (!roomId) return null;
 
+  // If in manual mode, show the manual setup screen
   if (isManualMode) {
     return (
       <div className="w-full max-w-4xl mx-auto">
@@ -43,6 +43,10 @@ const GameRoom: React.FC = () => {
     );
   }
 
+  // If not in manual mode but no current player, return null
+  if (!currentPlayer) return null;
+
+  // Otherwise, show the game room
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="p-4 bg-bingo-card border-2 border-bingo-border rounded-lg shadow mb-6">
