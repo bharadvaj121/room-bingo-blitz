@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
@@ -122,21 +121,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    // For manual mode, we just set up the room but don't create player board yet
+    const newRoomId = generateId();
+    setRoomId(newRoomId);
     setIsManualMode(isManual);
     
     if (isManual) {
-      // For manual mode, we'll set up the room but not create the player yet
-      const newRoomId = generateId();
-      setRoomId(newRoomId);
       resetManualNumbers();
       toast.success(`Room created! Select 25 numbers for your board.`);
       return;
     }
     
-    // For automatic mode, proceed as before
-    const newRoomId = generateId();
-    setRoomId(newRoomId);
-    
+    // For automatic mode, proceed with random board generation
     const newPlayer: Player = {
       id: generateId(),
       name: playerName,
