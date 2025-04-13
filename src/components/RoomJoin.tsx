@@ -1,10 +1,11 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { useGame } from "@/contexts/GameContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const RoomJoin: React.FC = () => {
   const { 
@@ -15,6 +16,8 @@ const RoomJoin: React.FC = () => {
     createRoom, 
     joinRoom 
   } = useGame();
+  
+  const [showCreateOptions, setShowCreateOptions] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,15 +53,42 @@ const RoomJoin: React.FC = () => {
             <Separator className="my-4 bg-bingo-accent/50" />
 
             <div className="space-y-3">
-              <div className="flex justify-center">
-                <Button 
-                  type="button" 
-                  onClick={createRoom}
-                  className="w-full bg-bingo-border hover:bg-bingo-border/80 text-white"
-                >
-                  Create New Room
-                </Button>
-              </div>
+              <Dialog open={showCreateOptions} onOpenChange={setShowCreateOptions}>
+                <DialogTrigger asChild>
+                  <Button 
+                    type="button"
+                    disabled={!playerName.trim()}
+                    className="w-full bg-bingo-border hover:bg-bingo-border/80 text-white"
+                  >
+                    Create New Room
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-bingo-card border-2 border-bingo-border">
+                  <DialogHeader>
+                    <DialogTitle className="text-bingo-border text-xl">Choose Board Setup</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex flex-col sm:flex-row gap-4 py-4">
+                    <Button 
+                      onClick={() => {
+                        createRoom(false); 
+                        setShowCreateOptions(false);
+                      }}
+                      className="flex-1 bg-bingo-accent hover:bg-bingo-accent/80 text-bingo-text"
+                    >
+                      Random Numbers
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        createRoom(true);
+                        setShowCreateOptions(false);
+                      }}
+                      className="flex-1 bg-bingo-border hover:bg-bingo-border/80 text-white"
+                    >
+                      Manual Setup
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               <div className="text-center text-sm font-medium text-bingo-text">OR</div>
 
@@ -80,6 +110,7 @@ const RoomJoin: React.FC = () => {
                   <Button 
                     type="button" 
                     onClick={joinRoom}
+                    disabled={!roomId.trim() || !playerName.trim()}
                     className="bg-bingo-border hover:bg-bingo-border/80 text-white whitespace-nowrap"
                   >
                     Join Room

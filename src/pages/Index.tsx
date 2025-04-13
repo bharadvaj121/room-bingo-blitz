@@ -1,7 +1,9 @@
+
 import React from "react";
 import { GameProvider, useGame } from "@/contexts/GameContext";
 import RoomJoin from "@/components/RoomJoin";
 import BingoBoard from "@/components/BingoBoard";
+import ManualBoardSetup from "@/components/ManualBoardSetup";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 
@@ -12,11 +14,34 @@ const GameRoom: React.FC = () => {
     currentPlayer, 
     gameStatus, 
     winner,
+    isManualMode,
     leaveRoom,
     resetGame
   } = useGame();
 
   if (!roomId || !currentPlayer) return null;
+
+  if (isManualMode) {
+    return (
+      <div className="w-full max-w-4xl mx-auto">
+        <div className="p-4 bg-bingo-card border-2 border-bingo-border rounded-lg shadow mb-6">
+          <div className="flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <h2 className="text-xl font-bold">Room: {roomId}</h2>
+            </div>
+            <Button 
+              onClick={leaveRoom}
+              variant="outline"
+              className="border-bingo-border text-bingo-border hover:bg-bingo-border/10"
+            >
+              Cancel & Leave Room
+            </Button>
+          </div>
+        </div>
+        <ManualBoardSetup />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-4xl mx-auto">

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
@@ -19,13 +20,19 @@ interface GameContextType {
   currentPlayer: Player | null;
   gameStatus: GameStatus;
   winner: Player | null;
+  isManualMode: boolean;
+  manualNumbers: number[];
   setRoomId: (id: string) => void;
   setPlayerName: (name: string) => void;
-  createRoom: () => void;
+  setIsManualMode: (isManual: boolean) => void;
+  addManualNumber: (num: number) => void;
+  resetManualNumbers: () => void;
+  createRoom: (isManual?: boolean) => void;
   joinRoom: () => void;
   leaveRoom: () => void;
   markCell: (index: number) => void;
   resetGame: () => void;
+  finishManualSetup: () => void;
 }
 
 const initialPlayer: Player = {
@@ -49,6 +56,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
   const [gameStatus, setGameStatus] = useState<GameStatus>("waiting");
   const [winner, setWinner] = useState<Player | null>(null);
+  const [isManualMode, setIsManualMode] = useState(false);
+  const [manualNumbers, setManualNumbers] = useState<number[]>([]);
   
   // In a real app, this would use a server or WebSocket connection
   // For this demo, we'll use localStorage to simulate multiplayer
@@ -93,13 +102,38 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Add a number to the manual board setup
+  const addManualNumber = (num: number) => {
+    if (manualNumbers.length >= 25) return;
+    if (manualNumbers.includes(num)) return;
+    
+    setManualNumbers(prev => [...prev, num]);
+  };
+
+  // Reset manual numbers array
+  const resetManualNumbers = () => {
+    setManualNumbers([]);
+  };
+
   // Create a new room
-  const createRoom = () => {
+  const createRoom = (isManual = false) => {
     if (!playerName.trim()) {
       toast.error("Please enter your name");
       return;
     }
 
+    setIsManualMode(isManual);
+    
+    if (isManual) {
+      // For manual mode, we'll set up the room but not create the player yet
+      const newRoomId = generateId();
+      setRoomId(newRoomId);
+      resetManualNumbers();
+      toast.success(`Room created! Select 25 numbers for your board.`);
+      return;
+    }
+    
+    // For automatic mode, proceed as before
     const newRoomId = generateId();
     setRoomId(newRoomId);
     
@@ -119,6 +153,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTimeout(() => {
       saveGameState();
       toast.success(`Room created! Room ID: ${newRoomId}`);
+    }, 0);
+  };
+
+  // Finish manual board setup
+  const finishManualSetup = () => {
+    if (manualNumbers.length !== 25) {
+      toast.error("You must select exactly 25 numbers");
+      return;
+    }
+    
+    const newPlayer: Player = {
+      id: generateId(),
+      name: playerName,
+      board: [...manualNumbers],
+      markedCells: Array(25).fill(false),
+      completedLines: 0
+    };
+    
+    setPlayers([newPlayer]);
+    setCurrentPlayer(newPlayer);
+    setGameStatus("playing");
+    setIsManualMode(false);
+    
+    // Save to localStorage after state updates
+    setTimeout(() => {
+      saveGameState();
+      toast.success(`Board created! Game ready to play.`);
     }, 0);
   };
 
@@ -299,15 +360,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Poll for updates every second
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId || isManualMode) return;
     
     const intervalId = setInterval(updateGameState, 1000);
     return () => clearInterval(intervalId);
-  }, [roomId, currentPlayer]);
+  }, [roomId, currentPlayer, isManualMode]);
   
   // Save game state whenever relevant state changes
   useEffect(() => {
-    if (roomId) saveGameState();
+    if (roomId && !isManualMode) saveGameState();
   }, [players, gameStatus, winner]);
 
   const value = {
@@ -317,13 +378,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     currentPlayer,
     gameStatus,
     winner,
+    isManualMode,
+    manualNumbers,
     setRoomId,
     setPlayerName,
+    setIsManualMode,
+    addManualNumber,
+    resetManualNumbers,
     createRoom,
     joinRoom,
     leaveRoom,
     markCell,
-    resetGame
+    resetGame,
+    finishManualSetup
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
