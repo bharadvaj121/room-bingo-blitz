@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
@@ -364,8 +365,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Save game state whenever relevant state changes
   useEffect(() => {
-    if (roomId && !isManualMode) saveGameState();
-  }, [players, gameStatus, winner]);
+    if (roomId && !isManualMode && gameStatus !== "waiting") saveGameState();
+  }, [players, gameStatus, winner, roomId, isManualMode]);
 
   const value = {
     roomId,
