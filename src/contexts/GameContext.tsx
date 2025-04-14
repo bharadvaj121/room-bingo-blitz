@@ -269,6 +269,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPlayers([]);
     setGameStatus("waiting");
     setWinner(null);
+    setIsManualMode(false);
     
     toast.info("Left the room");
   };
