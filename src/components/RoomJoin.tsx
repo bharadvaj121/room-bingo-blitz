@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useGame } from "@/contexts/GameContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,14 @@ const RoomJoin: React.FC = () => {
   } = useGame();
   
   const [showCreateOptions, setShowCreateOptions] = useState(false);
-  const [localRoomId, setLocalRoomId] = useState(roomId);
+  const [localRoomId, setLocalRoomId] = useState("");
+
+  // When roomId from context changes, update localRoomId
+  useEffect(() => {
+    if (roomId) {
+      setLocalRoomId(roomId);
+    }
+  }, [roomId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +34,14 @@ const RoomJoin: React.FC = () => {
   // Safely handle room ID changes
   const handleRoomIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLocalRoomId(e.target.value);
-    setRoomId(e.target.value);
+  };
+
+  // Only update the context roomId when joining
+  const handleJoinRoom = () => {
+    if (localRoomId && localRoomId.trim()) {
+      setRoomId(localRoomId);
+      joinRoom();
+    }
   };
 
   return (
@@ -116,11 +130,7 @@ const RoomJoin: React.FC = () => {
                   />
                   <Button 
                     type="button" 
-                    onClick={() => {
-                      if (localRoomId && localRoomId.trim()) {
-                        joinRoom();
-                      }
-                    }}
+                    onClick={handleJoinRoom}
                     disabled={!localRoomId?.trim() || !playerName.trim()}
                     className="bg-bingo-border hover:bg-bingo-border/80 text-white whitespace-nowrap"
                   >
