@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { GameProvider, useGame } from "@/contexts/GameContext";
 import RoomJoin from "@/components/RoomJoin";
 import BingoBoard from "@/components/BingoBoard";
 import ManualBoardSetup from "@/components/ManualBoardSetup";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const GameRoom: React.FC = () => {
   const { 
@@ -15,8 +16,11 @@ const GameRoom: React.FC = () => {
     winner,
     isManualMode,
     leaveRoom,
-    resetGame
+    resetGame,
+    createRoom
   } = useGame();
+  
+  const [showResetOptions, setShowResetOptions] = useState(false);
 
   if (!roomId) return null;
 
@@ -45,6 +49,16 @@ const GameRoom: React.FC = () => {
 
   // If not in manual mode but no current player, return null
   if (!currentPlayer) return null;
+  
+  const handlePlayAgain = () => {
+    setShowResetOptions(true);
+  };
+  
+  const handleResetOption = (isManual: boolean) => {
+    resetGame();
+    createRoom(isManual);
+    setShowResetOptions(false);
+  };
 
   // Otherwise, show the game room
   return (
@@ -68,7 +82,7 @@ const GameRoom: React.FC = () => {
           <div className="flex gap-2">
             {gameStatus === "finished" && (
               <Button 
-                onClick={resetGame}
+                onClick={handlePlayAgain}
                 className="bg-green-600 hover:bg-green-700 flex items-center gap-1"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -85,6 +99,28 @@ const GameRoom: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <Dialog open={showResetOptions} onOpenChange={setShowResetOptions}>
+        <DialogContent className="bg-bingo-card border-2 border-bingo-border">
+          <DialogHeader>
+            <DialogTitle className="text-bingo-border text-xl">Choose Board Setup</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col sm:flex-row gap-4 py-4">
+            <Button 
+              onClick={() => handleResetOption(false)}
+              className="flex-1 bg-bingo-accent hover:bg-bingo-accent/80 text-bingo-text"
+            >
+              Random Numbers
+            </Button>
+            <Button 
+              onClick={() => handleResetOption(true)}
+              className="flex-1 bg-bingo-border hover:bg-bingo-border/80 text-white"
+            >
+              Manual Setup
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Current player's board always first */}

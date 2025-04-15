@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
@@ -122,8 +121,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // For manual mode, we just set up the room but don't create player board yet
-    const newRoomId = generateId();
+    // When creating a new room or recreating after game end
+    const newRoomId = roomId || generateId(); // Use existing roomId if available
     setRoomId(newRoomId);
     setIsManualMode(isManual);
     
@@ -131,7 +130,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       resetManualNumbers();
       // Ensure we're in waiting state when in manual setup mode
       setGameStatus("waiting");
-      toast.success(`Room created! Select 25 numbers for your board.`);
+      toast.success(`Room ${roomId ? "reset" : "created"}! Select 25 numbers for your board.`);
       return;
     }
     
@@ -152,7 +151,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Save to localStorage after state updates
     setTimeout(() => {
       saveGameState();
-      toast.success(`Room created! Room ID: ${newRoomId}`);
+      toast.success(`Room ${roomId ? "reset" : "created"}! Room ID: ${newRoomId}`);
     }, 0);
   };
 
@@ -334,34 +333,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Reset the game in the current room
+  // Reset the game in the current room - just clears the game state
+  // but doesn't create a new board - that will be handled by createRoom
   const resetGame = () => {
     if (!roomId) return;
     
-    // Generate new boards for all players
-    const resetPlayers = players.map(player => ({
-      ...player,
-      board: generateBingoBoard(),
-      markedCells: Array(25).fill(false),
-      completedLines: 0
-    }));
-    
-    setPlayers(resetPlayers);
-    setGameStatus("playing"); // Explicitly set to playing
+    // We don't generate new boards here anymore
+    // This just resets the state to allow a new game setup
+    setGameStatus("waiting");
     setWinner(null);
+    setIsManualMode(false);
     
-    // Update current player
-    if (currentPlayer) {
-      const resetCurrentPlayer = resetPlayers.find(p => p.id === currentPlayer.id) || null;
-      setCurrentPlayer(resetCurrentPlayer);
-    }
-    
-    // Save updated state
-    localStorage.setItem(`bingo-room-${roomId}`, JSON.stringify({
-      players: resetPlayers,
-      status: "playing", // Explicitly set to playing in localStorage
-      winner: null
-    }));
+    // We'll let createRoom handle the board creation
+    localStorage.removeItem(`bingo-room-${roomId}`);
     
     toast.info("Game has been reset!");
   };
