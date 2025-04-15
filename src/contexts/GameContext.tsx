@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
@@ -277,6 +276,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Mark a cell on the current player's board
   const markCell = (index: number) => {
     if (!currentPlayer || gameStatus !== "playing") return;
+    
+    console.log("Marking cell", index, "Current game status:", gameStatus);
     
     // Check if cell is already marked
     if (currentPlayer.markedCells[index]) return;
