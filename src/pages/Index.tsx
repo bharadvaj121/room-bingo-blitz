@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { GameProvider, useGame } from "@/contexts/GameContext";
 import RoomJoin from "@/components/RoomJoin";
@@ -5,7 +6,7 @@ import BingoBoard from "@/components/BingoBoard";
 import ManualBoardSetup from "@/components/ManualBoardSetup";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 const GameRoom: React.FC = () => {
   const { 
@@ -104,6 +105,9 @@ const GameRoom: React.FC = () => {
         <DialogContent className="bg-bingo-card border-2 border-bingo-border">
           <DialogHeader>
             <DialogTitle className="text-bingo-border text-xl">Choose Board Setup</DialogTitle>
+            <DialogDescription>
+              Select how you want to set up your board for the new game.
+            </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col sm:flex-row gap-4 py-4">
             <Button 

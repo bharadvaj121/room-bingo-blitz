@@ -18,9 +18,16 @@ const RoomJoin: React.FC = () => {
   } = useGame();
   
   const [showCreateOptions, setShowCreateOptions] = useState(false);
+  const [localRoomId, setLocalRoomId] = useState(roomId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+  };
+
+  // Safely handle room ID changes
+  const handleRoomIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalRoomId(e.target.value);
+    setRoomId(e.target.value);
   };
 
   return (
@@ -102,15 +109,19 @@ const RoomJoin: React.FC = () => {
                 <div className="flex space-x-2">
                   <Input
                     id="roomId"
-                    value={roomId}
-                    onChange={(e) => setRoomId(e.target.value)}
+                    value={localRoomId}
+                    onChange={handleRoomIdChange}
                     placeholder="Enter room ID"
                     className="border-2 border-bingo-accent bg-bingo-cardStripe2/50"
                   />
                   <Button 
                     type="button" 
-                    onClick={joinRoom}
-                    disabled={!roomId.trim() || !playerName.trim()}
+                    onClick={() => {
+                      if (localRoomId && localRoomId.trim()) {
+                        joinRoom();
+                      }
+                    }}
+                    disabled={!localRoomId?.trim() || !playerName.trim()}
                     className="bg-bingo-border hover:bg-bingo-border/80 text-white whitespace-nowrap"
                   >
                     Join Room
