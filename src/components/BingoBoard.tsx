@@ -20,7 +20,10 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
   const { markCell, gameStatus, winner } = useGame();
 
   const handleCellClick = (index: number) => {
-    if (!isCurrentPlayer || gameStatus !== "playing" || markedCells[index]) return;
+    if (!isCurrentPlayer || gameStatus !== "playing") {
+      console.log("Cell click prevented:", !isCurrentPlayer ? "Not current player" : "Game status is " + gameStatus);
+      return;
+    }
     markCell(index);
   };
 
@@ -51,7 +54,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
               markedCells[index] ? "marked" : "",
               (!isCurrentPlayer || gameStatus !== "playing") ? "disabled" : ""
             )}
-            disabled={!isCurrentPlayer || gameStatus !== "playing" || markedCells[index]}
+            disabled={!isCurrentPlayer || markedCells[index] || gameStatus !== "playing"}
             onClick={() => handleCellClick(index)}
             aria-label={`Bingo cell ${number}`}
           >

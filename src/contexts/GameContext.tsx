@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
@@ -68,7 +69,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (gameStateStr) {
         const gameState = JSON.parse(gameStateStr);
         setPlayers(gameState.players || []);
-        setGameStatus(gameState.status || "waiting");
+        setGameStatus(gameState.status || "playing"); // Default to playing if status is missing
         setWinner(gameState.winner || null);
         
         // Find current player in the updated list
@@ -128,6 +129,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (isManual) {
       resetManualNumbers();
+      // Ensure we're in waiting state when in manual setup mode
+      setGameStatus("waiting");
       toast.success(`Room created! Select 25 numbers for your board.`);
       return;
     }
@@ -143,7 +146,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setPlayers([newPlayer]);
     setCurrentPlayer(newPlayer);
-    setGameStatus("playing");
+    setGameStatus("playing"); // Explicitly set to playing
+    setWinner(null); // Ensure winner is null
     
     // Save to localStorage after state updates
     setTimeout(() => {
@@ -169,12 +173,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setPlayers([newPlayer]);
     setCurrentPlayer(newPlayer);
-    setGameStatus("playing");
+    setGameStatus("playing"); // Explicitly set to playing
+    setWinner(null); // Ensure winner is null
     setIsManualMode(false);
     
     // Save to localStorage after state updates
     setTimeout(() => {
-      saveGameState();
+      localStorage.setItem(`bingo-room-${roomId}`, JSON.stringify({
+        players: [newPlayer],
+        status: "playing", // Explicitly set status to playing in localStorage
+        winner: null
+      }));
       toast.success(`Board created! Game ready to play.`);
     }, 0);
   };
@@ -228,14 +237,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const updatedPlayers = [...gameState.players, newPlayer];
       setPlayers(updatedPlayers);
       setCurrentPlayer(newPlayer);
-      setGameStatus(gameState.status);
-      setWinner(gameState.winner);
+      setGameStatus(gameState.status || "playing"); // Default to playing if status is missing
+      setWinner(gameState.winner || null);
       
       // Save updated state
       localStorage.setItem(`bingo-room-${roomId}`, JSON.stringify({
         players: updatedPlayers,
-        status: gameState.status,
-        winner: gameState.winner
+        status: gameState.status || "playing", // Ensure status is preserved or defaults to playing
+        winner: gameState.winner || null
       }));
       
       toast.success(`Joined room ${roomId}`);
@@ -338,7 +347,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }));
     
     setPlayers(resetPlayers);
-    setGameStatus("playing");
+    setGameStatus("playing"); // Explicitly set to playing
     setWinner(null);
     
     // Update current player
@@ -350,7 +359,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Save updated state
     localStorage.setItem(`bingo-room-${roomId}`, JSON.stringify({
       players: resetPlayers,
-      status: "playing",
+      status: "playing", // Explicitly set to playing in localStorage
       winner: null
     }));
     
