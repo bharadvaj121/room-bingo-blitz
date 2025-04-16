@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { GameProvider, useGame } from "@/contexts/GameContext";
 import RoomJoin from "@/components/RoomJoin";
@@ -127,7 +128,7 @@ const GameRoom: React.FC = () => {
 
       {/* Display winner's board at the top and smaller if there is a winner */}
       {winner && (
-        <div className="mb-6 max-w-lg mx-auto transform scale-75 origin-top">
+        <div className="mb-6 max-w-lg mx-auto transform scale-50 origin-top">
           <div className="text-center mb-2">
             <h3 className="text-2xl font-bold text-red-600 animate-flash">Winner's Board</h3>
           </div>

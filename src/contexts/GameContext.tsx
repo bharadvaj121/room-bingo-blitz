@@ -21,6 +21,8 @@ interface GameContextType {
   winner: Player | null;
   isManualMode: boolean;
   manualNumbers: number[];
+  lastClickedPlayer: string;
+  lastClickedNumber: number | null;
   setRoomId: (id: string) => void;
   setPlayerName: (name: string) => void;
   setIsManualMode: (isManual: boolean) => void;
@@ -57,6 +59,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [winner, setWinner] = useState<Player | null>(null);
   const [isManualMode, setIsManualMode] = useState(false);
   const [manualNumbers, setManualNumbers] = useState<number[]>([]);
+  const [lastClickedPlayer, setLastClickedPlayer] = useState<string>("");
+  const [lastClickedNumber, setLastClickedNumber] = useState<number | null>(null);
   
   // In a real app, this would use a server or WebSocket connection
   // For this demo, we'll use localStorage to simulate multiplayer
@@ -94,7 +98,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem(`bingo-room-${roomId}`, JSON.stringify({
         players,
         status: gameStatus,
-        winner
+        winner,
+        lastClickedPlayer,
+        lastClickedNumber
       }));
     } catch (error) {
       console.error("Error saving game state:", error);
@@ -289,55 +295,78 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     toast.info("Left the room");
   };
 
-  // Mark a cell on the current player's board
+  // Mark a cell on all players' boards
   const markCell = (index: number) => {
     if (!currentPlayer || gameStatus !== "playing") return;
     
     console.log("Marking cell", index, "Current game status:", gameStatus);
     
-    // Check if cell is already marked
-    if (currentPlayer.markedCells[index]) return;
+    // Get the clicked number from current player's board
+    const clickedNumber = currentPlayer.board[index];
     
-    // Create updated player with the newly marked cell
-    const updatedMarkedCells = [...currentPlayer.markedCells];
-    updatedMarkedCells[index] = true;
+    // Set the last clicked player and number
+    setLastClickedPlayer(currentPlayer.name);
+    setLastClickedNumber(clickedNumber);
     
-    // Check if this move creates a winning condition
-    const completedLines = checkWin(updatedMarkedCells);
+    // Update all players' boards with this number
+    const updatedPlayers = players.map(player => {
+      // Find the index of this number on each player's board
+      const playerBoardIndex = player.board.indexOf(clickedNumber);
+      
+      // If number doesn't exist on this player's board or already marked, return player unchanged
+      if (playerBoardIndex === -1 || player.markedCells[playerBoardIndex]) {
+        return player;
+      }
+      
+      // Create updated marked cells for this player
+      const updatedMarkedCells = [...player.markedCells];
+      updatedMarkedCells[playerBoardIndex] = true;
+      
+      // Check win condition for this player
+      const completedLines = checkWin(updatedMarkedCells);
+      
+      return {
+        ...player,
+        markedCells: updatedMarkedCells,
+        completedLines
+      };
+    });
     
-    const updatedPlayer: Player = {
-      ...currentPlayer,
-      markedCells: updatedMarkedCells,
-      completedLines
-    };
+    // Check if any player has won
+    const winningPlayer = updatedPlayers.find(p => p.completedLines >= 5);
     
-    // Update players list with the modified player
-    const updatedPlayers = players.map(p => 
-      p.id === currentPlayer.id ? updatedPlayer : p
-    );
-    
-    // Check if this player has won (5 or more completed lines)
-    const hasWon = completedLines >= 5;
-    const newGameStatus = hasWon ? "finished" : "playing";
-    const newWinner = hasWon ? updatedPlayer : null;
-    
-    setCurrentPlayer(updatedPlayer);
     setPlayers(updatedPlayers);
     
-    if (hasWon) {
+    // Update current player reference
+    setCurrentPlayer(
+      updatedPlayers.find(p => p.id === currentPlayer.id) || null
+    );
+    
+    // Set game status and winner if applicable
+    if (winningPlayer) {
       setGameStatus("finished");
-      setWinner(updatedPlayer);
+      setWinner(winningPlayer);
+      
+      setTimeout(() => {
+        toast.success(`${winningPlayer.name} has won the game!`);
+      }, 500);
     }
     
     // Save updated state
     localStorage.setItem(`bingo-room-${roomId}`, JSON.stringify({
       players: updatedPlayers,
-      status: newGameStatus,
-      winner: newWinner
+      status: winningPlayer ? "finished" : "playing",
+      winner: winningPlayer || null,
+      lastClickedPlayer: currentPlayer.name,
+      lastClickedNumber: clickedNumber
     }));
     
-    if (hasWon) {
-      toast.success(`${updatedPlayer.name} has won the game!`);
+    // Reset lastClickedPlayer and lastClickedNumber after 2 seconds
+    if (lastClickedPlayer) {
+      setTimeout(() => {
+        setLastClickedPlayer("");
+        setLastClickedNumber(null);
+      }, 2000);
     }
   };
 
@@ -362,14 +391,41 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!roomId || isManualMode) return;
     
-    const intervalId = setInterval(updateGameState, 1000);
+    const intervalId = setInterval(() => {
+      try {
+        const gameStateStr = localStorage.getItem(`bingo-room-${roomId}`);
+        if (gameStateStr) {
+          const gameState = JSON.parse(gameStateStr);
+          setPlayers(gameState.players || []);
+          setGameStatus(gameState.status || "playing");
+          setWinner(gameState.winner || null);
+          
+          // Update last clicked player and number
+          setLastClickedPlayer(gameState.lastClickedPlayer || "");
+          setLastClickedNumber(gameState.lastClickedNumber || null);
+          
+          // Find current player in the updated list
+          if (currentPlayer) {
+            const updatedCurrentPlayer = gameState.players.find(
+              (p: Player) => p.id === currentPlayer.id
+            );
+            if (updatedCurrentPlayer) {
+              setCurrentPlayer(updatedCurrentPlayer);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error updating game state:", error);
+      }
+    }, 1000);
+    
     return () => clearInterval(intervalId);
   }, [roomId, currentPlayer, isManualMode]);
   
   // Save game state whenever relevant state changes
   useEffect(() => {
     if (roomId && !isManualMode && gameStatus !== "waiting") saveGameState();
-  }, [players, gameStatus, winner, roomId, isManualMode]);
+  }, [players, gameStatus, winner, roomId, isManualMode, lastClickedPlayer, lastClickedNumber]);
 
   const value = {
     roomId,
@@ -380,6 +436,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     winner,
     isManualMode,
     manualNumbers,
+    lastClickedPlayer,
+    lastClickedNumber,
     setRoomId,
     setPlayerName,
     setIsManualMode,

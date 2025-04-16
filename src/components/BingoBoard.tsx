@@ -20,7 +20,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
   playerName,
   isWinner = false
 }) => {
-  const { markCell, gameStatus, winner } = useGame();
+  const { markCell, gameStatus, winner, lastClickedPlayer, lastClickedNumber } = useGame();
 
   const handleCellClick = (index: number) => {
     if (!isCurrentPlayer || gameStatus !== "playing") {
@@ -62,13 +62,24 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
       )}>
         {isGameWon && <WinMessage isWinner={isPlayerWinner} />}
         
+        {/* Show last clicked player name if available */}
+        {lastClickedPlayer && lastClickedNumber && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none animate-fade-out">
+            <div className="text-xl sm:text-2xl font-bold text-center px-4 py-2 rounded-lg 
+                        bg-bingo-accent/70 transform rotate-[-10deg] animate-bounce-once">
+              {lastClickedPlayer} clicked {lastClickedNumber}!
+            </div>
+          </div>
+        )}
+        
         {board.map((number, index) => (
           <button
             key={index}
             className={cn(
               "bingo-cell",
               markedCells[index] ? "marked" : "",
-              (!isCurrentPlayer || gameStatus !== "playing") ? "disabled" : ""
+              (!isCurrentPlayer || gameStatus !== "playing") ? "disabled" : "",
+              number === lastClickedNumber && "bg-bingo-accent/50"
             )}
             disabled={!isCurrentPlayer || markedCells[index] || gameStatus !== "playing"}
             onClick={() => handleCellClick(index)}
