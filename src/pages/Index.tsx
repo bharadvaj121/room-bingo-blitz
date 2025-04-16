@@ -125,10 +125,26 @@ const GameRoom: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Display winner's board at the top and smaller if there is a winner */}
+      {winner && (
+        <div className="mb-6 max-w-lg mx-auto transform scale-75 origin-top">
+          <div className="text-center mb-2">
+            <h3 className="text-2xl font-bold text-red-600 animate-flash">Winner's Board</h3>
+          </div>
+          <BingoBoard
+            key={`winner-${winner.id}`}
+            board={winner.board}
+            markedCells={winner.markedCells}
+            isCurrentPlayer={winner.id === currentPlayer.id}
+            playerName={winner.name}
+            isWinner={true}
+          />
+        </div>
+      )}
+
+      {/* Display all player boards in a grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Use the players array but sort so winner is first */}
         {players.map(player => {
-          const isPlayerWinner = winner && player.id === winner.id;
           const isPlayerCurrentPlayer = player.id === currentPlayer.id;
           
           return (
@@ -138,7 +154,7 @@ const GameRoom: React.FC = () => {
               markedCells={player.markedCells}
               isCurrentPlayer={isPlayerCurrentPlayer}
               playerName={player.name}
-              isWinner={isPlayerWinner}
+              isWinner={false}
             />
           );
         })}
