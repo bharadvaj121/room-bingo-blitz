@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { GameProvider, useGame } from "@/contexts/GameContext";
 import RoomJoin from "@/components/RoomJoin";
@@ -127,26 +126,22 @@ const GameRoom: React.FC = () => {
       </Dialog>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Current player's board always first */}
-        <BingoBoard 
-          board={currentPlayer.board}
-          markedCells={currentPlayer.markedCells}
-          isCurrentPlayer={true}
-          playerName={currentPlayer.name}
-        />
-        
-        {/* Other players' boards */}
-        {players
-          .filter(player => player.id !== currentPlayer.id)
-          .map(player => (
+        {/* Use the players array but sort so winner is first */}
+        {players.map(player => {
+          const isPlayerWinner = winner && player.id === winner.id;
+          const isPlayerCurrentPlayer = player.id === currentPlayer.id;
+          
+          return (
             <BingoBoard
               key={player.id}
               board={player.board}
               markedCells={player.markedCells}
-              isCurrentPlayer={false}
+              isCurrentPlayer={isPlayerCurrentPlayer}
               playerName={player.name}
+              isWinner={isPlayerWinner}
             />
-          ))}
+          );
+        })}
       </div>
     </div>
   );

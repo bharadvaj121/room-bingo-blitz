@@ -3,19 +3,22 @@ import React from "react";
 import { useGame } from "@/contexts/GameContext";
 import { cn } from "@/lib/utils";
 import WinMessage from "./WinMessage";
+import { Trophy } from "lucide-react";
 
 interface BingoBoardProps {
   board: number[];
   markedCells: boolean[];
   isCurrentPlayer: boolean;
   playerName: string;
+  isWinner?: boolean;
 }
 
 const BingoBoard: React.FC<BingoBoardProps> = ({ 
   board, 
   markedCells, 
   isCurrentPlayer, 
-  playerName 
+  playerName,
+  isWinner = false
 }) => {
   const { markCell, gameStatus, winner } = useGame();
 
@@ -28,23 +31,36 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
   };
 
   const isGameWon = gameStatus === "finished" && winner !== null;
-  const isWinner = isGameWon && isCurrentPlayer;
+  const isPlayerWinner = isGameWon && isWinner;
 
   return (
-    <div className="relative">
+    <div className={cn(
+      "relative",
+      isPlayerWinner && "order-first" // Winner board will be ordered first
+    )}>
       <div className="mb-2 text-center font-bold">
         <span className={cn(
-          isCurrentPlayer ? "text-bingo-border" : "text-bingo-text",
-          "text-xl"
+          isPlayerWinner 
+            ? "text-2xl text-red-600 animate-flash flex items-center justify-center gap-2"
+            : isCurrentPlayer 
+              ? "text-bingo-border text-xl" 
+              : "text-bingo-text text-xl"
         )}>
-          {isCurrentPlayer ? "Your Board" : `${playerName}'s Board`}
+          {isPlayerWinner && <Trophy className="w-5 h-5" />}
+          {isPlayerWinner 
+            ? `🏆 WINNER: ${playerName} 🏆` 
+            : isCurrentPlayer 
+              ? "Your Board" 
+              : `${playerName}'s Board`}
+          {isPlayerWinner && <Trophy className="w-5 h-5" />}
         </span>
       </div>
       <div className={cn(
         "grid grid-cols-5 gap-1 sm:gap-2 p-4 rounded-lg border-4 relative",
-        "bg-bingo-card border-bingo-border shadow-lg"
+        "bg-bingo-card border-bingo-border shadow-lg",
+        isPlayerWinner && "border-red-600 shadow-red-400"
       )}>
-        {isGameWon && <WinMessage isWinner={isWinner} />}
+        {isGameWon && <WinMessage isWinner={isPlayerWinner} />}
         
         {board.map((number, index) => (
           <button
