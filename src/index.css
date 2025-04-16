@@ -133,4 +133,8 @@
   .animate-bounce-once {
     animation: bounce-once 2s forwards;
   }
+  
+  .scale-25 {
+    transform: scale(0.25);
+  }
 }

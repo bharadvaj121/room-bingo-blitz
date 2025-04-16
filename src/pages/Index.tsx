@@ -1,12 +1,16 @@
-
 import React, { useState } from "react";
 import { GameProvider, useGame } from "@/contexts/GameContext";
 import RoomJoin from "@/components/RoomJoin";
 import BingoBoard from "@/components/BingoBoard";
 import ManualBoardSetup from "@/components/ManualBoardSetup";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, User, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { 
+  Alert,
+  AlertTitle,
+  AlertDescription,
+} from "@/components/ui/alert";
 
 const GameRoom: React.FC = () => {
   const { 
@@ -60,6 +64,9 @@ const GameRoom: React.FC = () => {
     createRoom(isManual);
     setShowResetOptions(false);
   };
+  
+  // Calculate if room is full (5 members max)
+  const isRoomFull = players.length >= 5;
 
   // Otherwise, show the game room
   return (
@@ -68,7 +75,11 @@ const GameRoom: React.FC = () => {
         <div className="flex flex-wrap justify-between items-center gap-4">
           <div>
             <h2 className="text-xl font-bold">Room: {roomId}</h2>
-            <p className="text-sm">Players: {players.length}</p>
+            <p className="text-sm flex items-center gap-1">
+              <Users className="w-4 h-4" />
+              Players: {players.length}/5 
+              {isRoomFull && <span className="text-red-500 font-bold">(Full)</span>}
+            </p>
           </div>
           <div>
             <p className="text-sm">
@@ -76,7 +87,7 @@ const GameRoom: React.FC = () => {
             </p>
             {winner && (
               <p className="text-sm">
-                Winner: <span className="font-semibold text-bingo-border">{winner.name}</span>
+                Winner: <span className="font-semibold text-red-600">{winner.name}</span>
               </p>
             )}
           </div>
@@ -125,10 +136,21 @@ const GameRoom: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Current player turn indicator */}
+      {gameStatus === "playing" && currentPlayer && (
+        <Alert className="mb-4 bg-green-100 border-green-500">
+          <User className="h-5 w-5 text-green-600" />
+          <AlertTitle className="text-green-800">Your Turn</AlertTitle>
+          <AlertDescription className="text-green-700">
+            {currentPlayer.name}, it's your turn to click a number on your board.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Display winner's board at the top and smaller if there is a winner */}
       {winner && (
-        <div className="mb-6 max-w-lg mx-auto transform scale-50 origin-top">
+        <div className="mb-6 max-w-lg mx-auto transform scale-25 origin-top">
           <div className="text-center mb-2">
             <h3 className="text-2xl font-bold text-red-600 animate-flash">Winner's Board</h3>
           </div>

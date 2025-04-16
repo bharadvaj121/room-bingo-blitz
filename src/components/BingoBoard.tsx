@@ -50,7 +50,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
           {isPlayerWinner 
             ? `🏆 WINNER: ${playerName} 🏆` 
             : isCurrentPlayer 
-              ? "Your Board" 
+              ? `Your Turn - ${playerName}` 
               : `${playerName}'s Board`}
           {isPlayerWinner && <Trophy className="w-5 h-5" />}
         </span>
@@ -58,9 +58,20 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
       <div className={cn(
         "grid grid-cols-5 gap-1 sm:gap-2 p-4 rounded-lg border-4 relative",
         "bg-bingo-card border-bingo-border shadow-lg",
-        isPlayerWinner && "border-red-600 shadow-red-400"
+        isPlayerWinner && "border-red-600 shadow-red-400",
+        isCurrentPlayer && !isPlayerWinner && "border-green-500"
       )}>
         {isGameWon && <WinMessage isWinner={isPlayerWinner} />}
+        
+        {/* Current player turn indicator */}
+        {isCurrentPlayer && gameStatus === "playing" && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none animate-fade-out">
+            <div className="text-xl sm:text-2xl font-bold text-center px-4 py-2 rounded-lg 
+                        bg-green-500/70 text-white transform rotate-[-10deg] animate-bounce-once">
+              Your Turn! Click a number
+            </div>
+          </div>
+        )}
         
         {/* Show last clicked player name if available */}
         {lastClickedPlayer && lastClickedNumber && (

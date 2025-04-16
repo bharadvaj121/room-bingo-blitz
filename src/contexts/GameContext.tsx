@@ -238,6 +238,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       
+      // Check if room is at capacity (5 players maximum)
+      if (gameState.players.length >= 5) {
+        toast.error("This room is full (maximum 5 players)");
+        return;
+      }
+      
       const newPlayer: Player = {
         id: generateId(),
         name: playerName,
