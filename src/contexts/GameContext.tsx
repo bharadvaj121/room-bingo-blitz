@@ -143,14 +143,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       completedLines: 0
     };
     
+    // Clear existing players and set up with new player
     setPlayers([newPlayer]);
     setCurrentPlayer(newPlayer);
-    setGameStatus("playing"); // Explicitly set to playing
+    setGameStatus("playing"); // Set to playing
     setWinner(null); // Ensure winner is null
+    
+    // Clear any existing game state in localStorage for this room before saving
+    localStorage.removeItem(`bingo-room-${newRoomId}`);
     
     // Save to localStorage after state updates
     setTimeout(() => {
-      saveGameState();
+      localStorage.setItem(`bingo-room-${newRoomId}`, JSON.stringify({
+        players: [newPlayer],
+        status: "playing",
+        winner: null
+      }));
       toast.success(`Room ${roomId ? "reset" : "created"}! Room ID: ${newRoomId}`);
     }, 0);
   };
@@ -344,7 +352,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setWinner(null);
     setIsManualMode(false);
     
-    // We'll let createRoom handle the board creation
+    // Clear the localStorage for this room to ensure a clean state
     localStorage.removeItem(`bingo-room-${roomId}`);
     
     toast.info("Game has been reset!");
