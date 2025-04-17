@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 const RoomJoin: React.FC = () => {
   const { 
@@ -30,6 +31,7 @@ const RoomJoin: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Prevent form submission - we'll handle actions via buttons
   };
 
   // Safely handle room ID changes
@@ -52,15 +54,35 @@ const RoomJoin: React.FC = () => {
     }
     
     // Check if room exists in localStorage
-    const gameStateStr = localStorage.getItem(`bingo-room-${localRoomId.trim()}`);
+    const roomIdTrimmed = localRoomId.trim();
+    const gameStateStr = localStorage.getItem(`bingo-room-${roomIdTrimmed}`);
+    
     if (!gameStateStr) {
       setInputError("Room not found");
+      console.log(`Room not found: bingo-room-${roomIdTrimmed}`);
+      toast.error(`Room ${roomIdTrimmed} not found`);
       return;
     }
     
-    setInputError(""); // Clear any errors
-    setRoomId(localRoomId.trim());
-    joinRoom();
+    try {
+      // Validate that the room data is proper JSON
+      const gameState = JSON.parse(gameStateStr);
+      
+      if (!gameState || !gameState.players) {
+        setInputError("Invalid room data");
+        toast.error("Invalid room data");
+        return;
+      }
+      
+      console.log("Room found, joining:", roomIdTrimmed);
+      setInputError(""); // Clear any errors
+      setRoomId(roomIdTrimmed);
+      joinRoom();
+    } catch (error) {
+      console.error("Error parsing game state:", error);
+      setInputError("Invalid room data");
+      toast.error("Invalid room data");
+    }
   };
 
   return (
