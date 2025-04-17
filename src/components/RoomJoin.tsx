@@ -19,6 +19,7 @@ const RoomJoin: React.FC = () => {
   
   const [showCreateOptions, setShowCreateOptions] = useState(false);
   const [localRoomId, setLocalRoomId] = useState("");
+  const [inputError, setInputError] = useState("");
 
   // When roomId from context changes, update localRoomId
   useEffect(() => {
@@ -34,14 +35,32 @@ const RoomJoin: React.FC = () => {
   // Safely handle room ID changes
   const handleRoomIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLocalRoomId(e.target.value);
+    // Clear error when user starts typing
+    if (inputError) setInputError("");
   };
 
   // Only update the context roomId when joining
   const handleJoinRoom = () => {
-    if (localRoomId && localRoomId.trim()) {
-      setRoomId(localRoomId);
-      joinRoom();
+    if (!localRoomId || !localRoomId.trim()) {
+      setInputError("Please enter a room ID");
+      return;
     }
+    
+    if (!playerName.trim()) {
+      setInputError("Please enter your name");
+      return;
+    }
+    
+    // Check if room exists in localStorage
+    const gameStateStr = localStorage.getItem(`bingo-room-${localRoomId.trim()}`);
+    if (!gameStateStr) {
+      setInputError("Room not found");
+      return;
+    }
+    
+    setInputError(""); // Clear any errors
+    setRoomId(localRoomId.trim());
+    joinRoom();
   };
 
   return (
@@ -131,12 +150,15 @@ const RoomJoin: React.FC = () => {
                   <Button 
                     type="button" 
                     onClick={handleJoinRoom}
-                    disabled={!localRoomId?.trim() || !playerName.trim()}
+                    disabled={!playerName.trim()}
                     className="bg-bingo-border hover:bg-bingo-border/80 text-white whitespace-nowrap"
                   >
                     Join Room
                   </Button>
                 </div>
+                {inputError && (
+                  <p className="text-red-500 text-sm mt-1">{inputError}</p>
+                )}
               </div>
             </div>
           </form>
