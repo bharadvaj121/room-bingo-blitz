@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { GameProvider, useGame } from "@/contexts/GameContext";
 import RoomJoin from "@/components/RoomJoin";
@@ -157,7 +156,7 @@ const GameRoom: React.FC = () => {
               <div className="text-center mb-2">
                 <h3 className="text-2xl font-bold text-white animate-flash">Winner's Board</h3>
               </div>
-              <div className="transform scale-40 origin-center">
+              <div className="transform scale-50 origin-center">
                 <BingoBoard
                   key={`winner-${winner.id}`}
                   board={winner.board}
