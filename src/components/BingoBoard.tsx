@@ -87,7 +87,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
           <button
             key={index}
             className={cn(
-              "bingo-cell",
+              "bingo-cell relative",
               markedCells[index] ? "marked" : "",
               (!isCurrentPlayer || gameStatus !== "playing") ? "disabled" : "",
               number === lastClickedNumber && "bg-bingo-accent/50"
@@ -97,6 +97,14 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
             aria-label={`Bingo cell ${number}`}
           >
             {number}
+            {/* Red diagonal line for marked cells */}
+            {markedCells[index] && (
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-0 left-0 right-0 bottom-0 overflow-hidden">
+                  <div className="absolute top-0 left-0 w-[140%] h-0.5 bg-red-600 origin-top-left transform rotate-45 translate-y-1/2"></div>
+                </div>
+              </div>
+            )}
           </button>
         ))}
       </div>

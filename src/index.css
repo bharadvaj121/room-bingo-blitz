@@ -137,4 +137,9 @@
   .scale-25 {
     transform: scale(0.25);
   }
+  
+  .scale-40 {
+    transform: scale(0.4);
+  }
 }
+
