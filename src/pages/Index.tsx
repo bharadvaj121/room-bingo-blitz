@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { GameProvider, useGame } from "@/contexts/GameContext";
 import RoomJoin from "@/components/RoomJoin";
@@ -148,39 +149,45 @@ const GameRoom: React.FC = () => {
         </Alert>
       )}
 
-      {/* Display winner's board at the top and smaller if there is a winner */}
-      {winner && (
-        <div className="mb-6 max-w-lg mx-auto transform scale-40 origin-top">
-          <div className="text-center mb-2">
-            <h3 className="text-2xl font-bold text-red-600 animate-flash">Winner's Board</h3>
+      <div className="relative">
+        {/* Display winner's board as an overlay on top of game boards */}
+        {winner && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+            <div className="bg-black/30 p-6 rounded-lg w-3/4 max-w-md">
+              <div className="text-center mb-2">
+                <h3 className="text-2xl font-bold text-white animate-flash">Winner's Board</h3>
+              </div>
+              <div className="transform scale-40 origin-center">
+                <BingoBoard
+                  key={`winner-${winner.id}`}
+                  board={winner.board}
+                  markedCells={winner.markedCells}
+                  isCurrentPlayer={winner.id === currentPlayer.id}
+                  playerName={winner.name}
+                  isWinner={true}
+                />
+              </div>
+            </div>
           </div>
-          <BingoBoard
-            key={`winner-${winner.id}`}
-            board={winner.board}
-            markedCells={winner.markedCells}
-            isCurrentPlayer={winner.id === currentPlayer.id}
-            playerName={winner.name}
-            isWinner={true}
-          />
-        </div>
-      )}
+        )}
 
-      {/* Display all player boards in a grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {players.map(player => {
-          const isPlayerCurrentPlayer = player.id === currentPlayer.id;
-          
-          return (
-            <BingoBoard
-              key={player.id}
-              board={player.board}
-              markedCells={player.markedCells}
-              isCurrentPlayer={isPlayerCurrentPlayer}
-              playerName={player.name}
-              isWinner={false}
-            />
-          );
-        })}
+        {/* Display all player boards in a grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {players.map(player => {
+            const isPlayerCurrentPlayer = player.id === currentPlayer.id;
+            
+            return (
+              <BingoBoard
+                key={player.id}
+                board={player.board}
+                markedCells={player.markedCells}
+                isCurrentPlayer={isPlayerCurrentPlayer}
+                playerName={player.name}
+                isWinner={gameStatus === "finished" && winner?.id === player.id}
+              />
+            );
+          })}
+        </div>
       </div>
     </div>
   );
