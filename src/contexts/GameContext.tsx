@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
@@ -226,68 +227,124 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log(`Attempting to join room with key: ${roomKey}`);
       console.log(`Room data found: ${gameStateStr ? 'Yes' : 'No'}`);
       
+      // If room doesn't exist, create it instead of showing an error
       if (!gameStateStr) {
-        toast.error(`Room ${roomId} not found`);
-        console.error(`Room not found: ${roomKey}`);
+        console.log(`Room ${roomId} not found, creating a new room instead`);
+        
+        // Create a new player with random board
+        const newPlayer: Player = {
+          id: generateId(),
+          name: playerName,
+          board: generateBingoBoard(),
+          markedCells: Array(25).fill(false),
+          completedLines: 0
+        };
+        
+        // Initialize new room state
+        setPlayers([newPlayer]);
+        setCurrentPlayer(newPlayer);
+        setGameStatus("playing");
+        setWinner(null);
+        
+        // Save to localStorage
+        localStorage.setItem(roomKey, JSON.stringify({
+          players: [newPlayer],
+          status: "playing",
+          winner: null
+        }));
+        
+        toast.success(`Created new room with ID ${roomId}`);
         return;
       }
 
-      const gameState = JSON.parse(gameStateStr);
-      console.log("Parsed game state:", gameState);
-      
-      // Check if game is already finished
-      if (gameState.status === "finished") {
-        toast.error("This game has already ended");
-        return;
+      // Process existing room
+      try {
+        const gameState = JSON.parse(gameStateStr);
+        console.log("Parsed game state:", gameState);
+        
+        // Check if game is already finished
+        if (gameState.status === "finished") {
+          toast.error("This game has already ended");
+          return;
+        }
+        
+        // Check if player name is already taken
+        const existingPlayer = gameState.players.find(
+          (p: Player) => p.name.toLowerCase() === playerName.toLowerCase()
+        );
+        
+        if (existingPlayer) {
+          toast.error("This name is already taken in the room");
+          return;
+        }
+        
+        // Check if room is at capacity (5 players maximum)
+        if (gameState.players.length >= 5) {
+          toast.error("This room is full (maximum 5 players)");
+          return;
+        }
+        
+        const newPlayer: Player = {
+          id: generateId(),
+          name: playerName,
+          board: generateBingoBoard(),
+          markedCells: Array(25).fill(false),
+          completedLines: 0
+        };
+        
+        // Update the room with the new player
+        const updatedPlayers = [...gameState.players, newPlayer];
+        
+        // Update local state
+        setPlayers(updatedPlayers);
+        setCurrentPlayer(newPlayer);
+        setGameStatus(gameState.status || "playing"); // Default to playing if status is missing
+        setWinner(gameState.winner || null);
+        
+        // Create updated game state
+        const updatedGameState = {
+          players: updatedPlayers,
+          status: gameState.status || "playing",
+          winner: gameState.winner || null,
+          lastClickedPlayer: gameState.lastClickedPlayer || "",
+          lastClickedNumber: gameState.lastClickedNumber || null
+        };
+        
+        // Save updated state
+        localStorage.setItem(roomKey, JSON.stringify(updatedGameState));
+        
+        console.log(`Successfully joined room ${roomId}:`, updatedGameState);
+        toast.success(`Joined room ${roomId}`);
+      } catch (error) {
+        console.error("Error parsing game state JSON:", error);
+        
+        // Create a new room if data is corrupted
+        console.log("Creating new room due to corrupted data");
+        
+        // Create a new player with random board
+        const newPlayer: Player = {
+          id: generateId(),
+          name: playerName,
+          board: generateBingoBoard(),
+          markedCells: Array(25).fill(false),
+          completedLines: 0
+        };
+        
+        // Initialize new room state
+        setPlayers([newPlayer]);
+        setCurrentPlayer(newPlayer);
+        setGameStatus("playing");
+        setWinner(null);
+        
+        // Save to localStorage
+        localStorage.setItem(roomKey, JSON.stringify({
+          players: [newPlayer],
+          status: "playing",
+          winner: null
+        }));
+        
+        toast.success(`Created new room with ID ${roomId}`);
       }
-      
-      // Check if player name is already taken
-      const existingPlayer = gameState.players.find(
-        (p: Player) => p.name.toLowerCase() === playerName.toLowerCase()
-      );
-      
-      if (existingPlayer) {
-        toast.error("This name is already taken in the room");
-        return;
-      }
-      
-      // Check if room is at capacity (5 players maximum)
-      if (gameState.players.length >= 5) {
-        toast.error("This room is full (maximum 5 players)");
-        return;
-      }
-      
-      const newPlayer: Player = {
-        id: generateId(),
-        name: playerName,
-        board: generateBingoBoard(),
-        markedCells: Array(25).fill(false),
-        completedLines: 0
-      };
-      
-      // Update the room with the new player
-      const updatedPlayers = [...gameState.players, newPlayer];
-      
-      // Update local state
-      setPlayers(updatedPlayers);
-      setCurrentPlayer(newPlayer);
-      setGameStatus(gameState.status || "playing"); // Default to playing if status is missing
-      setWinner(gameState.winner || null);
-      
-      // Create updated game state
-      const updatedGameState = {
-        players: updatedPlayers,
-        status: gameState.status || "playing",
-        winner: gameState.winner || null,
-        lastClickedPlayer: gameState.lastClickedPlayer || "",
-        lastClickedNumber: gameState.lastClickedNumber || null
-      };
-      
-      // Save updated state
-      localStorage.setItem(roomKey, JSON.stringify(updatedGameState));
-      
-      console.log(`Successfully joined room ${roomId}:`, updatedGameState);
-      toast.success(`Joined room ${roomId}`);
     } catch (error) {
       console.error("Error joining room:", error);
       toast.error("Something went wrong while joining the room");
