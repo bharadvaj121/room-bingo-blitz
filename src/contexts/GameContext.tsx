@@ -160,11 +160,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Save to localStorage after state updates
     setTimeout(() => {
-      localStorage.setItem(`bingo-room-${newRoomId}`, JSON.stringify({
+      const gameState = {
         players: [newPlayer],
         status: "playing",
         winner: null
-      }));
+      };
+      
+      localStorage.setItem(`bingo-room-${newRoomId}`, JSON.stringify(gameState));
+      console.log(`Room created with ID ${newRoomId}:`, gameState);
       toast.success(`Room ${roomId ? "reset" : "created"}! Room ID: ${newRoomId}`);
     }, 0);
   };
@@ -203,24 +206,34 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Join an existing room
   const joinRoom = () => {
+    console.log("joinRoom called with roomId:", roomId, "and playerName:", playerName);
+    
     if (!playerName.trim()) {
       toast.error("Please enter your name");
       return;
     }
     
-    if (!roomId.trim()) {
+    if (!roomId || !roomId.trim()) {
       toast.error("Please enter a room ID");
+      console.error("joinRoom called without a room ID");
       return;
     }
 
     try {
-      const gameStateStr = localStorage.getItem(`bingo-room-${roomId}`);
+      const roomKey = `bingo-room-${roomId}`;
+      const gameStateStr = localStorage.getItem(roomKey);
+      
+      console.log(`Attempting to join room with key: ${roomKey}`);
+      console.log(`Room data found: ${gameStateStr ? 'Yes' : 'No'}`);
+      
       if (!gameStateStr) {
-        toast.error("Room not found");
+        toast.error(`Room ${roomId} not found`);
+        console.error(`Room not found: ${roomKey}`);
         return;
       }
 
       const gameState = JSON.parse(gameStateStr);
+      console.log("Parsed game state:", gameState);
       
       // Check if game is already finished
       if (gameState.status === "finished") {
@@ -254,22 +267,30 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Update the room with the new player
       const updatedPlayers = [...gameState.players, newPlayer];
+      
+      // Update local state
       setPlayers(updatedPlayers);
       setCurrentPlayer(newPlayer);
       setGameStatus(gameState.status || "playing"); // Default to playing if status is missing
       setWinner(gameState.winner || null);
       
-      // Save updated state
-      localStorage.setItem(`bingo-room-${roomId}`, JSON.stringify({
+      // Create updated game state
+      const updatedGameState = {
         players: updatedPlayers,
-        status: gameState.status || "playing", // Ensure status is preserved or defaults to playing
-        winner: gameState.winner || null
-      }));
+        status: gameState.status || "playing",
+        winner: gameState.winner || null,
+        lastClickedPlayer: gameState.lastClickedPlayer || "",
+        lastClickedNumber: gameState.lastClickedNumber || null
+      };
       
+      // Save updated state
+      localStorage.setItem(roomKey, JSON.stringify(updatedGameState));
+      
+      console.log(`Successfully joined room ${roomId}:`, updatedGameState);
       toast.success(`Joined room ${roomId}`);
     } catch (error) {
       console.error("Error joining room:", error);
-      toast.error("Something went wrong");
+      toast.error("Something went wrong while joining the room");
     }
   };
 
@@ -397,26 +418,47 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!roomId || isManualMode) return;
     
+    // Log initial room state on mount
+    const roomKey = `bingo-room-${roomId}`;
+    try {
+      const initialState = localStorage.getItem(roomKey);
+      if (initialState) {
+        console.log("Initial room state loaded:", JSON.parse(initialState));
+      }
+    } catch (e) {
+      console.error("Error reading initial room state:", e);
+    }
+    
     const intervalId = setInterval(() => {
       try {
-        const gameStateStr = localStorage.getItem(`bingo-room-${roomId}`);
+        const gameStateStr = localStorage.getItem(roomKey);
         if (gameStateStr) {
           const gameState = JSON.parse(gameStateStr);
-          setPlayers(gameState.players || []);
-          setGameStatus(gameState.status || "playing");
-          setWinner(gameState.winner || null);
           
-          // Update last clicked player and number
-          setLastClickedPlayer(gameState.lastClickedPlayer || "");
-          setLastClickedNumber(gameState.lastClickedNumber || null);
+          // Only update state if there are actual changes
+          const stateChanged = 
+            JSON.stringify(players) !== JSON.stringify(gameState.players) ||
+            gameStatus !== gameState.status ||
+            JSON.stringify(winner) !== JSON.stringify(gameState.winner);
           
-          // Find current player in the updated list
-          if (currentPlayer) {
-            const updatedCurrentPlayer = gameState.players.find(
-              (p: Player) => p.id === currentPlayer.id
-            );
-            if (updatedCurrentPlayer) {
-              setCurrentPlayer(updatedCurrentPlayer);
+          if (stateChanged) {
+            console.log("Game state updated from localStorage:", gameState);
+            setPlayers(gameState.players || []);
+            setGameStatus(gameState.status || "playing");
+            setWinner(gameState.winner || null);
+            
+            // Update last clicked player and number
+            setLastClickedPlayer(gameState.lastClickedPlayer || "");
+            setLastClickedNumber(gameState.lastClickedNumber || null);
+            
+            // Find current player in the updated list
+            if (currentPlayer) {
+              const updatedCurrentPlayer = gameState.players.find(
+                (p: Player) => p.id === currentPlayer.id
+              );
+              if (updatedCurrentPlayer) {
+                setCurrentPlayer(updatedCurrentPlayer);
+              }
             }
           }
         }
@@ -426,11 +468,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 1000);
     
     return () => clearInterval(intervalId);
-  }, [roomId, currentPlayer, isManualMode]);
+  }, [roomId, currentPlayer, isManualMode, players, gameStatus, winner]);
   
   // Save game state whenever relevant state changes
   useEffect(() => {
-    if (roomId && !isManualMode && gameStatus !== "waiting") saveGameState();
+    if (roomId && !isManualMode && gameStatus !== "waiting") {
+      saveGameState();
+    }
   }, [players, gameStatus, winner, roomId, isManualMode, lastClickedPlayer, lastClickedNumber]);
 
   const value = {

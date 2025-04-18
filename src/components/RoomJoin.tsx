@@ -22,9 +22,18 @@ const RoomJoin: React.FC = () => {
   const [localRoomId, setLocalRoomId] = useState("");
   const [inputError, setInputError] = useState("");
 
+  // Debug existing rooms on component mount
+  useEffect(() => {
+    // List all local storage keys to debug
+    const keys = Object.keys(localStorage);
+    const roomKeys = keys.filter(key => key.startsWith('bingo-room-'));
+    console.log("Available room keys:", roomKeys);
+  }, []);
+
   // When roomId from context changes, update localRoomId
   useEffect(() => {
     if (roomId) {
+      console.log("Room ID updated from context:", roomId);
       setLocalRoomId(roomId);
     }
   }, [roomId]);
@@ -45,21 +54,27 @@ const RoomJoin: React.FC = () => {
   const handleJoinRoom = () => {
     if (!localRoomId || !localRoomId.trim()) {
       setInputError("Please enter a room ID");
+      toast.error("Please enter a room ID");
       return;
     }
     
     if (!playerName.trim()) {
       setInputError("Please enter your name");
+      toast.error("Please enter your name");
       return;
     }
     
     // Check if room exists in localStorage
     const roomIdTrimmed = localRoomId.trim();
-    const gameStateStr = localStorage.getItem(`bingo-room-${roomIdTrimmed}`);
+    const fullRoomKey = `bingo-room-${roomIdTrimmed}`;
+    const gameStateStr = localStorage.getItem(fullRoomKey);
+    
+    console.log(`Attempting to join room with key: ${fullRoomKey}`);
+    console.log(`Room data found: ${gameStateStr ? 'Yes' : 'No'}`);
     
     if (!gameStateStr) {
       setInputError("Room not found");
-      console.log(`Room not found: bingo-room-${roomIdTrimmed}`);
+      console.error(`Room not found: ${fullRoomKey}`);
       toast.error(`Room ${roomIdTrimmed} not found`);
       return;
     }
@@ -67,17 +82,28 @@ const RoomJoin: React.FC = () => {
     try {
       // Validate that the room data is proper JSON
       const gameState = JSON.parse(gameStateStr);
+      console.log("Parsed game state:", gameState);
       
       if (!gameState || !gameState.players) {
         setInputError("Invalid room data");
+        console.error("Invalid room data structure:", gameState);
         toast.error("Invalid room data");
         return;
       }
       
-      console.log("Room found, joining:", roomIdTrimmed);
+      console.log("Room found with players:", gameState.players.length);
+      
+      // Update context with valid room ID and call join function
       setInputError(""); // Clear any errors
       setRoomId(roomIdTrimmed);
-      joinRoom();
+      
+      // Small delay to ensure roomId is set before joining
+      setTimeout(() => {
+        console.log("Joining room with ID:", roomIdTrimmed);
+        joinRoom();
+      }, 50);
+      
+      toast.success(`Joining room ${roomIdTrimmed}`);
     } catch (error) {
       console.error("Error parsing game state:", error);
       setInputError("Invalid room data");
