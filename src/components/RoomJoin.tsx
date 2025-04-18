@@ -45,7 +45,10 @@ const RoomJoin: React.FC = () => {
   };
 
   // Only update the context roomId when joining
-  const handleJoinRoom = () => {
+  const handleJoinRoom = async () => {
+    // Clear any existing errors first
+    setInputError("");
+    
     if (!localRoomId || !localRoomId.trim()) {
       setInputError("Please enter a room ID");
       toast.error("Please enter a room ID");
@@ -62,12 +65,12 @@ const RoomJoin: React.FC = () => {
     const roomIdTrimmed = localRoomId.trim();
     setRoomId(roomIdTrimmed);
     
-    // Then call the join function
+    // Then call the join function with a slight delay to ensure state update
     setTimeout(() => {
       console.log("Joining room with ID:", roomIdTrimmed);
       joinRoom();
-    }, 50);
-      
+    }, 100);
+    
     toast.success(`Joining room ${roomIdTrimmed}`);
   };
 
