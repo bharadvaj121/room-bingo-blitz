@@ -11,6 +11,7 @@ interface BingoBoardProps {
   isCurrentPlayer: boolean;
   playerName: string;
   isWinner?: boolean;
+  onCellClick?: (index: number) => void;
 }
 
 const BingoBoard: React.FC<BingoBoardProps> = ({ 
@@ -18,16 +19,20 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
   markedCells, 
   isCurrentPlayer, 
   playerName,
-  isWinner = false
+  isWinner = false,
+  onCellClick
 }) => {
   const { markCell, gameStatus, winner, lastClickedPlayer, lastClickedNumber } = useGame();
 
   const handleCellClick = (index: number) => {
-    if (!isCurrentPlayer || gameStatus !== "playing") {
+    if (onCellClick) {
+      onCellClick(index);
+    } else if (!isCurrentPlayer || gameStatus !== "playing") {
       console.log("Cell click prevented:", !isCurrentPlayer ? "Not current player" : "Game status is " + gameStatus);
       return;
+    } else {
+      markCell(index);
     }
-    markCell(index);
   };
 
   const isGameWon = gameStatus === "finished" && winner !== null;
