@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import BingoBoard from "./BingoBoard";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
 import { toast } from "sonner";
-import { Computer, Eye } from "lucide-react";
+import { Computer } from "lucide-react";
 
 type Player = {
   id: string;
@@ -38,18 +37,7 @@ const ComputerGame = () => {
     completedLines: 0
   });
 
-  // Computer's turn logic
-  useEffect(() => {
-    if (gameStarted && currentTurn === "computer" && !winner) {
-      const delay = setTimeout(() => {
-        makeComputerMove();
-      }, 1000);
-      
-      return () => clearTimeout(delay);
-    }
-  }, [currentTurn, gameStarted, winner]);
-
-  // Show computer board when game ends
+  // Show computer board only when game ends
   useEffect(() => {
     if (winner) {
       setShowComputerBoard(true);
@@ -64,11 +52,66 @@ const ComputerGame = () => {
     
     if (unmarkedIndices.length === 0) return;
     
-    // Randomly select one of the unmarked numbers
-    const randomIndex = unmarkedIndices[Math.floor(Math.random() * unmarkedIndices.length)];
-    const selectedNumber = computer.board[randomIndex];
+    // Enhanced computer strategy:
+    // 1. Check if there's a potential winning move
+    // 2. If not, check if there's a move that blocks player from winning
+    // 3. If neither, make a strategic move to complete lines
     
-    // Mark the number on both boards
+    let selectedIndex = -1;
+    
+    // First, simulate each move to find a winning move
+    for (const index of unmarkedIndices) {
+      const simulatedMarkedCells = [...computer.markedCells];
+      simulatedMarkedCells[index] = true;
+      if (checkWin(simulatedMarkedCells) >= 5) {
+        selectedIndex = index;
+        break;
+      }
+    }
+    
+    // If no winning move, try to block player's potential win
+    if (selectedIndex === -1) {
+      const playerUnmarkedIndices = player.board.map((num, index) => 
+        !player.markedCells[index] ? index : -1
+      ).filter(index => index !== -1);
+      
+      for (const playerIndex of playerUnmarkedIndices) {
+        const simulatedMarkedCells = [...player.markedCells];
+        simulatedMarkedCells[playerIndex] = true;
+        if (checkWin(simulatedMarkedCells) >= 4) { // Block if player is close to winning
+          const numberToBlock = player.board[playerIndex];
+          const computerIndex = computer.board.indexOf(numberToBlock);
+          if (computerIndex !== -1 && !computer.markedCells[computerIndex]) {
+            selectedIndex = computerIndex;
+            break;
+          }
+        }
+      }
+    }
+    
+    // If no critical moves, choose a strategic position
+    if (selectedIndex === -1) {
+      // Prioritize moves that complete more lines
+      let bestScore = -1;
+      
+      for (const index of unmarkedIndices) {
+        const simulatedMarkedCells = [...computer.markedCells];
+        simulatedMarkedCells[index] = true;
+        const linesCompleted = checkWin(simulatedMarkedCells);
+        
+        if (linesCompleted > bestScore) {
+          bestScore = linesCompleted;
+          selectedIndex = index;
+        }
+      }
+      
+      // If still no good move, choose randomly
+      if (selectedIndex === -1) {
+        selectedIndex = unmarkedIndices[Math.floor(Math.random() * unmarkedIndices.length)];
+      }
+    }
+    
+    const selectedNumber = computer.board[selectedIndex];
     markNumber(selectedNumber);
   };
 
@@ -142,10 +185,6 @@ const ComputerGame = () => {
     setShowComputerBoard(false);
   };
 
-  const toggleComputerBoard = () => {
-    setShowComputerBoard(prev => !prev);
-  };
-
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="p-4 bg-bingo-card border-2 border-bingo-border rounded-lg shadow mb-6">
@@ -167,32 +206,14 @@ const ComputerGame = () => {
                 Current Turn: {currentTurn === "player" ? playerName : computerName}
               </p>
             </div>
-            <div className="flex gap-2">
-              {winner ? (
+            <div>
+              {winner && (
                 <Button 
                   onClick={startNewGame}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   Play Again
                 </Button>
-              ) : (
-                <>
-                  <Button 
-                    variant="outline"
-                    disabled
-                    className="border-bingo-border text-bingo-border"
-                  >
-                    {currentTurn === "player" ? "Your Turn" : "Computer's Turn..."}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={toggleComputerBoard}
-                    className="border-bingo-border text-bingo-border"
-                  >
-                    <Eye className="w-4 h-4 mr-2" />
-                    {showComputerBoard ? "Hide" : "Peek"} Computer
-                  </Button>
-                </>
               )}
             </div>
           </div>
@@ -210,7 +231,7 @@ const ComputerGame = () => {
             onCellClick={handlePlayerMove}
           />
           
-          {(showComputerBoard || winner) && (
+          {showComputerBoard ? (
             <BingoBoard
               board={computer.board}
               markedCells={computer.markedCells}
@@ -218,15 +239,13 @@ const ComputerGame = () => {
               playerName={computerName}
               isWinner={winner?.id === computer.id}
             />
-          )}
-          
-          {!showComputerBoard && !winner && (
+          ) : (
             <div className="flex items-center justify-center border-4 border-dashed border-bingo-border rounded-lg p-8 h-full">
               <div className="text-center">
                 <Computer className="w-16 h-16 mx-auto mb-4 text-bingo-border opacity-50" />
                 <h3 className="text-xl font-semibold text-bingo-text">Computer's board is hidden</h3>
                 <p className="mt-2 text-sm text-gray-500">
-                  The computer's board will be revealed when the game ends or you can click "Peek Computer" to see it
+                  The computer's board will be revealed when the game ends
                 </p>
               </div>
             </div>
