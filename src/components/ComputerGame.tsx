@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import BingoBoard from "./BingoBoard";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
 import { toast } from "sonner";
-import { Computer } from "lucide-react";
+import { Computer, Eye } from "lucide-react";
 
 type Player = {
   id: string;
@@ -20,6 +20,7 @@ const ComputerGame = () => {
   const [gameStarted, setGameStarted] = useState(false);
   const [currentTurn, setCurrentTurn] = useState<"player" | "computer">("player");
   const [winner, setWinner] = useState<Player | null>(null);
+  const [showComputerBoard, setShowComputerBoard] = useState(false);
   
   const [player, setPlayer] = useState<Player>({
     id: "player1",
@@ -47,6 +48,13 @@ const ComputerGame = () => {
       return () => clearTimeout(delay);
     }
   }, [currentTurn, gameStarted, winner]);
+
+  // Show computer board when game ends
+  useEffect(() => {
+    if (winner) {
+      setShowComputerBoard(true);
+    }
+  }, [winner]);
 
   const makeComputerMove = () => {
     // Get all unmarked numbers from computer's board
@@ -111,7 +119,8 @@ const ComputerGame = () => {
 
   const handlePlayerMove = (index: number) => {
     if (currentTurn !== "player" || winner) return;
-    markNumber(player.board[index]);
+    const selectedNumber = player.board[index];
+    markNumber(selectedNumber);
   };
 
   const startNewGame = () => {
@@ -130,6 +139,11 @@ const ComputerGame = () => {
     setWinner(null);
     setGameStarted(true);
     setCurrentTurn("player");
+    setShowComputerBoard(false);
+  };
+
+  const toggleComputerBoard = () => {
+    setShowComputerBoard(prev => !prev);
   };
 
   return (
@@ -153,22 +167,34 @@ const ComputerGame = () => {
                 Current Turn: {currentTurn === "player" ? playerName : computerName}
               </p>
             </div>
-            {winner ? (
-              <Button 
-                onClick={startNewGame}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                Play Again
-              </Button>
-            ) : (
-              <Button 
-                variant="outline"
-                disabled
-                className="border-bingo-border text-bingo-border"
-              >
-                {currentTurn === "player" ? "Your Turn" : "Computer's Turn..."}
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {winner ? (
+                <Button 
+                  onClick={startNewGame}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Play Again
+                </Button>
+              ) : (
+                <>
+                  <Button 
+                    variant="outline"
+                    disabled
+                    className="border-bingo-border text-bingo-border"
+                  >
+                    {currentTurn === "player" ? "Your Turn" : "Computer's Turn..."}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={toggleComputerBoard}
+                    className="border-bingo-border text-bingo-border"
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    {showComputerBoard ? "Hide" : "Peek"} Computer
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -183,13 +209,28 @@ const ComputerGame = () => {
             isWinner={winner?.id === player.id}
             onCellClick={handlePlayerMove}
           />
-          <BingoBoard
-            board={computer.board}
-            markedCells={computer.markedCells}
-            isCurrentPlayer={false}
-            playerName={computerName}
-            isWinner={winner?.id === computer.id}
-          />
+          
+          {(showComputerBoard || winner) && (
+            <BingoBoard
+              board={computer.board}
+              markedCells={computer.markedCells}
+              isCurrentPlayer={false}
+              playerName={computerName}
+              isWinner={winner?.id === computer.id}
+            />
+          )}
+          
+          {!showComputerBoard && !winner && (
+            <div className="flex items-center justify-center border-4 border-dashed border-bingo-border rounded-lg p-8 h-full">
+              <div className="text-center">
+                <Computer className="w-16 h-16 mx-auto mb-4 text-bingo-border opacity-50" />
+                <h3 className="text-xl font-semibold text-bingo-text">Computer's board is hidden</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  The computer's board will be revealed when the game ends or you can click "Peek Computer" to see it
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
