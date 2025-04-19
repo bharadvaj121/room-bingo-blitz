@@ -26,7 +26,10 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
 
   const handleCellClick = (index: number) => {
     if (onCellClick) {
-      onCellClick(index);
+      // This is the path for the computer game
+      if (!markedCells[index]) {
+        onCellClick(index);
+      }
     } else if (!isCurrentPlayer || gameStatus !== "playing") {
       console.log("Cell click prevented:", !isCurrentPlayer ? "Not current player" : "Game status is " + gameStatus);
       return;
@@ -94,10 +97,10 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
             className={cn(
               "bingo-cell relative",
               markedCells[index] ? "marked" : "",
-              (!isCurrentPlayer || gameStatus !== "playing") ? "disabled" : "",
+              (markedCells[index] || (!isCurrentPlayer && gameStatus !== "playing")) ? "disabled" : "",
               number === lastClickedNumber && "bg-bingo-accent/50"
             )}
-            disabled={!isCurrentPlayer || markedCells[index] || gameStatus !== "playing"}
+            disabled={markedCells[index] || ((!isCurrentPlayer || gameStatus !== "playing") && !onCellClick)}
             onClick={() => handleCellClick(index)}
             aria-label={`Bingo cell ${number}`}
           >
