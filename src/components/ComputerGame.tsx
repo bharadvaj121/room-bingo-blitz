@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import BingoBoard from "./BingoBoard";
@@ -43,6 +44,20 @@ const ComputerGame = () => {
       setShowComputerBoard(true);
     }
   }, [winner]);
+
+  // Add effect to handle computer's turn
+  useEffect(() => {
+    // When it's the computer's turn and no winner yet, make a move
+    if (currentTurn === "computer" && !winner && gameStarted) {
+      // Add a small delay to make it feel more natural
+      const timer = setTimeout(() => {
+        console.log("Computer's turn - making a move");
+        makeComputerMove();
+      }, 800);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [currentTurn, winner, gameStarted]);
 
   const makeComputerMove = () => {
     // Get all unmarked numbers from computer's board
