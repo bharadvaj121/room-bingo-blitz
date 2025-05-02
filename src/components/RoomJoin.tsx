@@ -49,20 +49,24 @@ const RoomJoin: React.FC = () => {
     // Clear any existing errors first
     setInputError("");
     
-    if (!localRoomId || !localRoomId.trim()) {
+    // Check if room ID is empty
+    if (!localRoomId || localRoomId.trim() === "") {
       setInputError("Please enter a room ID");
       toast.error("Please enter a room ID");
       return;
     }
     
-    if (!playerName.trim()) {
+    // Check if player name is empty
+    if (!playerName || playerName.trim() === "") {
       setInputError("Please enter your name");
       toast.error("Please enter your name");
       return;
     }
     
-    // First update the context's roomId
+    // Store the trimmed room ID to prevent whitespace issues
     const trimmedRoomId = localRoomId.trim();
+    
+    // First update the context's roomId
     setRoomId(trimmedRoomId);
     
     // Then join the room - we'll use a small delay to ensure state is updated

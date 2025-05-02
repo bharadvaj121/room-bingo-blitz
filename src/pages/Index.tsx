@@ -17,7 +17,7 @@ const Game: React.FC = () => {
       </h1>
       
       {!roomId ? (
-        <Tabs defaultValue="computer" className="w-full max-w-4xl mx-auto">
+        <Tabs defaultValue="multiplayer" className="w-full max-w-4xl mx-auto">
           <TabsList className="grid w-full grid-cols-2 mb-8">
             <TabsTrigger value="computer" className="flex gap-2 items-center">
               <Computer className="w-4 h-4" />
