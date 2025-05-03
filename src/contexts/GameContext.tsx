@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
@@ -214,9 +213,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    if (!roomId || roomId.trim() === "") {
+    if (!roomId) {
       toast.error("Please enter a room ID");
-      console.error("joinRoom called without a room ID");
+      console.error("joinRoom called with empty roomId");
       return;
     }
 
