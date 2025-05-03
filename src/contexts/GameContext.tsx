@@ -214,7 +214,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    if (!roomId || !roomId.trim()) {
+    if (!roomId || roomId.trim() === "") {
       toast.error("Please enter a room ID");
       console.error("joinRoom called without a room ID");
       return;

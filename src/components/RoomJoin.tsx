@@ -49,6 +49,8 @@ const RoomJoin: React.FC = () => {
     // Clear any existing errors first
     setInputError("");
     
+    console.log("Joining room with ID:", localRoomId);
+    
     // Check if room ID is empty
     if (!localRoomId || localRoomId.trim() === "") {
       setInputError("Please enter a room ID");
@@ -65,15 +67,13 @@ const RoomJoin: React.FC = () => {
     
     // Store the trimmed room ID to prevent whitespace issues
     const trimmedRoomId = localRoomId.trim();
+    console.log("Trimmed room ID:", trimmedRoomId);
     
     // First update the context's roomId
     setRoomId(trimmedRoomId);
     
-    // Then join the room - we'll use a small delay to ensure state is updated
-    setTimeout(() => {
-      console.log(`Joining room with ID: ${trimmedRoomId}`);
-      joinRoom();
-    }, 100);
+    // Now join the room immediately instead of delaying
+    joinRoom();
   };
 
   return (
