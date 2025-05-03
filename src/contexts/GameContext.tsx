@@ -213,7 +213,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    if (!roomId) {
+    if (!roomId || roomId.trim() === "") {
       toast.error("Please enter a room ID");
       console.error("joinRoom called with empty roomId");
       return;
