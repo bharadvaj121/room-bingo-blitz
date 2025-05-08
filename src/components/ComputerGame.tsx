@@ -133,6 +133,8 @@ const ComputerGame = () => {
   const markNumber = (number: number) => {
     if (!gameStarted) return;
     
+    console.log("Marking number:", number);
+    
     // Update player's board
     const playerBoardIndex = player.board.indexOf(number);
     if (playerBoardIndex !== -1 && !player.markedCells[playerBoardIndex]) {
@@ -178,25 +180,35 @@ const ComputerGame = () => {
   };
 
   const handlePlayerMove = (index: number) => {
-    if (currentTurn !== "player" || winner || !gameStarted) return;
+    if (currentTurn !== "player" || winner || !gameStarted) {
+      console.log("Cannot make move:", { currentTurn, winner, gameStarted });
+      return;
+    }
     
     // Check if the cell is already marked
-    if (player.markedCells[index]) return;
+    if (player.markedCells[index]) {
+      console.log("Cell already marked:", index);
+      return;
+    }
     
+    console.log("Player clicked cell:", index, "with number:", player.board[index]);
     const selectedNumber = player.board[index];
     markNumber(selectedNumber);
   };
 
   const startNewGame = () => {
+    const newPlayerBoard = generateBingoBoard();
+    const newComputerBoard = generateBingoBoard();
+    
     setPlayer({
       ...player,
-      board: generateBingoBoard(),
+      board: newPlayerBoard,
       markedCells: Array(25).fill(false),
       completedLines: 0
     });
     setComputer({
       ...computer,
-      board: generateBingoBoard(),
+      board: newComputerBoard,
       markedCells: Array(25).fill(false),
       completedLines: 0
     });
@@ -204,6 +216,11 @@ const ComputerGame = () => {
     setGameStarted(true);
     setCurrentTurn("player");
     setShowComputerBoard(false);
+    
+    console.log("Game started with boards:", { 
+      playerBoard: newPlayerBoard, 
+      computerBoard: newComputerBoard 
+    });
   };
 
   return (

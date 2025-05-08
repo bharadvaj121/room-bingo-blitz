@@ -25,19 +25,22 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
   const { markCell, gameStatus, winner, lastClickedPlayer, lastClickedNumber } = useGame();
 
   const handleCellClick = (index: number) => {
+    console.log("Cell clicked in BingoBoard:", index, "onCellClick function:", !!onCellClick);
+    
+    if (onCellClick) {
+      // For computer game mode or custom click handler
+      onCellClick(index);
+      return;
+    }
+    
+    // Only for multiplayer mode
     if (markedCells[index]) {
       // Cell already marked
       return;
     }
     
-    // Mark the cell in the local game state
+    // Mark the cell in the game context (for multiplayer)
     markCell(index);
-    
-    // If onCellClick is provided (for socket broadcasting),
-    // call it with the number that was clicked
-    if (onCellClick) {
-      onCellClick(board[index]);
-    }
   };
 
   const isGameWon = gameStatus === "finished" && winner !== null;
@@ -99,7 +102,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
             className={cn(
               "bingo-cell relative",
               markedCells[index] ? "marked" : "",
-              (markedCells[index] || (!isCurrentPlayer && gameStatus !== "playing")) ? "disabled" : "",
+              (markedCells[index] || (!isCurrentPlayer && gameStatus !== "playing" && !onCellClick)) ? "disabled" : "",
               number === lastClickedNumber && "bg-bingo-accent/50"
             )}
             disabled={markedCells[index] || ((!isCurrentPlayer || gameStatus !== "playing") && !onCellClick)}
