@@ -7,7 +7,10 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Copy } from "lucide-react";
+import axios from "axios";
+
+const API_URL = "http://localhost:4000";
 
 const RoomJoin: React.FC = () => {
   const { 
@@ -16,13 +19,14 @@ const RoomJoin: React.FC = () => {
     setPlayerName, 
     setRoomId, 
     createRoom, 
-    joinRoom 
+    joinRoom,
+    setServerConnected 
   } = useGame();
   
   const [showCreateOptions, setShowCreateOptions] = useState(false);
   const [localRoomId, setLocalRoomId] = useState("");
   const [inputError, setInputError] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // When roomId from context changes, update localRoomId
   useEffect(() => {
@@ -44,8 +48,46 @@ const RoomJoin: React.FC = () => {
     if (inputError) setInputError("");
   };
 
+  // Handle creating a room with server
+  const handleCreateRoom = async (isManual: boolean) => {
+    if (!playerName || playerName.trim() === "") {
+      setInputError("Please enter your name");
+      toast.error("Please enter your name");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      // Generate a random room ID
+      const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      // Create room on server
+      const response = await axios.post(`${API_URL}/api/room`, {
+        roomCode: newRoomId,
+        username: playerName.trim()
+      });
+
+      console.log("Room created:", response.data);
+      
+      // Set the room ID in context
+      setRoomId(newRoomId);
+      setServerConnected(true);
+      
+      // Create room locally
+      createRoom(isManual);
+      setShowCreateOptions(false);
+      
+      toast.success("Room created successfully!");
+    } catch (error) {
+      console.error("Error creating room:", error);
+      toast.error("Failed to create room. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Handle joining a room with proper error validation
-  const handleJoinRoom = () => {
+  const handleJoinRoom = async () => {
     // Clear any existing errors first
     setInputError("");
     
@@ -61,20 +103,47 @@ const RoomJoin: React.FC = () => {
       return;
     }
     
-    console.log("Attempting to join room with ID:", localRoomId);
-    
-    // Store the trimmed room ID to prevent whitespace issues
     const trimmedRoomId = localRoomId.trim();
-    console.log("Trimmed room ID:", trimmedRoomId);
+    console.log("Attempting to join room with ID:", trimmedRoomId);
     
-    // Set the room ID in context first
-    setRoomId(trimmedRoomId);
-    
-    // Add a slight delay to ensure the context is updated
-    setTimeout(() => {
-      // Now try to join the room
+    try {
+      setIsLoading(true);
+      
+      // Join room on server
+      const response = await axios.post(`${API_URL}/api/room`, {
+        roomCode: trimmedRoomId,
+        username: playerName.trim()
+      });
+      
+      console.log("Room joined:", response.data);
+      
+      // Set the room ID in context
+      setRoomId(trimmedRoomId);
+      setServerConnected(true);
+      
+      // Join room locally
       joinRoom();
-    }, 100);
+      
+      toast.success("Room joined successfully!");
+    } catch (error: any) {
+      console.error("Error joining room:", error);
+      if (error.response && error.response.status === 400) {
+        toast.error("Room is full. Please join another room.");
+      } else {
+        toast.error("Failed to join room. Please check if the room ID is correct.");
+      }
+      setInputError("Failed to join room");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const copyRoomIdToClipboard = () => {
+    if (!roomId) return;
+    
+    navigator.clipboard.writeText(roomId)
+      .then(() => toast.success("Room ID copied to clipboard!"))
+      .catch(err => console.error("Failed to copy room ID:", err));
   };
 
   return (
@@ -101,8 +170,27 @@ const RoomJoin: React.FC = () => {
                 placeholder="Enter your name"
                 className="border-2 border-bingo-accent bg-bingo-cardStripe2/50"
                 required
+                disabled={isLoading}
               />
             </div>
+
+            {roomId && (
+              <div className="bg-bingo-border/10 p-3 rounded-md flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-medium text-bingo-text">Your Room ID:</p>
+                  <p className="text-xl font-bold text-bingo-border">{roomId}</p>
+                </div>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="border-bingo-border text-bingo-border" 
+                  onClick={copyRoomIdToClipboard}
+                >
+                  <Copy className="h-4 w-4 mr-1" />
+                  Copy
+                </Button>
+              </div>
+            )}
 
             <Separator className="my-4 bg-bingo-accent/50" />
 
@@ -111,9 +199,12 @@ const RoomJoin: React.FC = () => {
                 <DialogTrigger asChild>
                   <Button 
                     type="button"
-                    disabled={!playerName.trim()}
+                    disabled={!playerName.trim() || isLoading}
                     className="w-full bg-bingo-border hover:bg-bingo-border/80 text-white"
                   >
+                    {isLoading ? (
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    ) : null}
                     Create New Room
                   </Button>
                 </DialogTrigger>
@@ -123,21 +214,23 @@ const RoomJoin: React.FC = () => {
                   </DialogHeader>
                   <div className="flex flex-col sm:flex-row gap-4 py-4">
                     <Button 
-                      onClick={() => {
-                        createRoom(false); 
-                        setShowCreateOptions(false);
-                      }}
+                      onClick={() => handleCreateRoom(false)}
                       className="flex-1 bg-bingo-accent hover:bg-bingo-accent/80 text-bingo-text"
+                      disabled={isLoading}
                     >
+                      {isLoading ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : null}
                       Random Numbers
                     </Button>
                     <Button 
-                      onClick={() => {
-                        createRoom(true);
-                        setShowCreateOptions(false);
-                      }}
+                      onClick={() => handleCreateRoom(true)}
                       className="flex-1 bg-bingo-border hover:bg-bingo-border/80 text-white"
+                      disabled={isLoading}
                     >
+                      {isLoading ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : null}
                       Manual Setup
                     </Button>
                   </div>
@@ -160,13 +253,17 @@ const RoomJoin: React.FC = () => {
                     onChange={handleRoomIdChange}
                     placeholder="Enter room ID"
                     className="border-2 border-bingo-accent bg-bingo-cardStripe2/50"
+                    disabled={isLoading}
                   />
                   <Button 
                     type="button" 
                     onClick={handleJoinRoom}
-                    disabled={!playerName.trim()}
+                    disabled={!playerName.trim() || isLoading}
                     className="bg-bingo-border hover:bg-bingo-border/80 text-white whitespace-nowrap"
                   >
+                    {isLoading ? (
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    ) : null}
                     Join Room
                   </Button>
                 </div>

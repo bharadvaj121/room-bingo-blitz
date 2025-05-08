@@ -1,15 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useGame } from "@/contexts/GameContext";
 import BingoBoard from "@/components/BingoBoard";
 import ManualBoardSetup from "@/components/ManualBoardSetup";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, User, Users } from "lucide-react";
+import { RefreshCw, User, Users, Copy } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { toast } from "sonner";
+import { io } from "socket.io-client";
 
 const GameRoom: React.FC = () => {
   const { 
     roomId, 
+    playerName,
     players, 
     currentPlayer, 
     gameStatus, 
@@ -17,10 +20,58 @@ const GameRoom: React.FC = () => {
     isManualMode,
     leaveRoom,
     resetGame,
-    createRoom
+    createRoom,
+    socket,
+    setSocket,
+    serverConnected,
+    setCalledNumber
   } = useGame();
   
   const [showResetOptions, setShowResetOptions] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  // Connect to Socket.io server when room is joined
+  useEffect(() => {
+    if (roomId && playerName && serverConnected && !socket) {
+      setIsConnecting(true);
+      
+      // Connect to Socket.io server
+      const newSocket = io("http://localhost:4000");
+      
+      newSocket.on("connect", () => {
+        console.log("Connected to socket server");
+        setIsConnecting(false);
+        setSocket(newSocket);
+        
+        // Join the room
+        newSocket.emit("joinRoom", { 
+          roomCode: roomId,
+          username: playerName 
+        });
+      });
+      
+      newSocket.on("numberCalled", ({ number }) => {
+        console.log("Number called:", number);
+        setCalledNumber(number);
+      });
+      
+      newSocket.on("bingoWinner", ({ username }) => {
+        toast.success(`${username} has won the game with BINGO!`);
+      });
+      
+      newSocket.on("playerJoined", ({ username }) => {
+        toast.info(`${username} joined the room`);
+      });
+      
+      return () => {
+        if (newSocket) {
+          console.log("Disconnecting socket");
+          newSocket.disconnect();
+          setSocket(null);
+        }
+      };
+    }
+  }, [roomId, playerName, serverConnected, socket, setSocket, setCalledNumber]);
 
   if (!roomId) return null;
 
@@ -62,6 +113,34 @@ const GameRoom: React.FC = () => {
   
   // Calculate if room is full (5 members max)
   const isRoomFull = players.length >= 5;
+  
+  const copyRoomIdToClipboard = () => {
+    if (!roomId) return;
+    
+    navigator.clipboard.writeText(roomId)
+      .then(() => toast.success("Room ID copied to clipboard!"))
+      .catch(err => console.error("Failed to copy room ID:", err));
+  };
+
+  // Function to broadcast a number when clicked
+  const broadcastNumber = (number: number) => {
+    if (socket && currentPlayer && gameStatus === "playing") {
+      socket.emit("numberSelected", { 
+        roomCode: roomId,
+        number: number 
+      });
+    }
+  };
+
+  // Function to broadcast bingo win
+  const broadcastBingo = () => {
+    if (socket && currentPlayer) {
+      socket.emit("bingoClaimed", { 
+        roomCode: roomId,
+        username: playerName 
+      });
+    }
+  };
 
   // Otherwise, show the game room
   return (
@@ -69,7 +148,17 @@ const GameRoom: React.FC = () => {
       <div className="p-4 bg-bingo-card border-2 border-bingo-border rounded-lg shadow mb-6">
         <div className="flex flex-wrap justify-between items-center gap-4">
           <div>
-            <h2 className="text-xl font-bold">Room: {roomId}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold">Room: {roomId}</h2>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="p-1 h-8" 
+                onClick={copyRoomIdToClipboard}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
             <p className="text-sm flex items-center gap-1">
               <Users className="w-4 h-4" />
               Players: {players.length}/5 
@@ -94,6 +183,14 @@ const GameRoom: React.FC = () => {
               >
                 <RefreshCw className="w-4 h-4" />
                 Play Again
+              </Button>
+            )}
+            {winner && (
+              <Button 
+                onClick={broadcastBingo}
+                className="bg-red-600 hover:bg-red-700 flex items-center gap-1"
+              >
+                Announce Winner
               </Button>
             )}
             <Button 
@@ -159,6 +256,7 @@ const GameRoom: React.FC = () => {
                   isCurrentPlayer={winner.id === currentPlayer.id}
                   playerName={winner.name}
                   isWinner={true}
+                  onCellClick={broadcastNumber}
                 />
               </div>
             </div>
@@ -178,6 +276,7 @@ const GameRoom: React.FC = () => {
                 isCurrentPlayer={isPlayerCurrentPlayer}
                 playerName={player.name}
                 isWinner={gameStatus === "finished" && winner?.id === player.id}
+                onCellClick={isPlayerCurrentPlayer ? broadcastNumber : undefined}
               />
             );
           })}

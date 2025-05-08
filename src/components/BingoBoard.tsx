@@ -11,7 +11,7 @@ interface BingoBoardProps {
   isCurrentPlayer: boolean;
   playerName: string;
   isWinner?: boolean;
-  onCellClick?: (index: number) => void;
+  onCellClick?: (number: number) => void;
 }
 
 const BingoBoard: React.FC<BingoBoardProps> = ({ 
@@ -25,16 +25,18 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
   const { markCell, gameStatus, winner, lastClickedPlayer, lastClickedNumber } = useGame();
 
   const handleCellClick = (index: number) => {
-    if (onCellClick) {
-      // This is the path for the computer game
-      if (!markedCells[index]) {
-        onCellClick(index);
-      }
-    } else if (!isCurrentPlayer || gameStatus !== "playing") {
-      console.log("Cell click prevented:", !isCurrentPlayer ? "Not current player" : "Game status is " + gameStatus);
+    if (markedCells[index]) {
+      // Cell already marked
       return;
-    } else {
-      markCell(index);
+    }
+    
+    // Mark the cell in the local game state
+    markCell(index);
+    
+    // If onCellClick is provided (for socket broadcasting),
+    // call it with the number that was clicked
+    if (onCellClick) {
+      onCellClick(board[index]);
     }
   };
 

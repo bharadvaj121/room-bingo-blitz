@@ -11,7 +11,7 @@ const Game: React.FC = () => {
   const { roomId } = useGame();
 
   return (
-    <div className="min-h-screen py-8 px-4">
+    <div className="min-h-screen py-8 px-4 bg-gradient-to-b from-blue-50 to-purple-50">
       <h1 className="text-4xl font-bold text-center mb-8 text-bingo-border">
         Bingo Blitz
       </h1>
@@ -38,6 +38,10 @@ const Game: React.FC = () => {
       ) : (
         <GameRoom />
       )}
+      
+      <div className="mt-8 text-center text-sm text-gray-500">
+        <p>Make sure the backend server is running at http://localhost:4000</p>
+      </div>
     </div>
   );
 };
