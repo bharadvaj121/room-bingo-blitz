@@ -131,9 +131,11 @@ const ComputerGame = () => {
   };
 
   const markNumber = (number: number) => {
+    if (!gameStarted) return;
+    
     // Update player's board
     const playerBoardIndex = player.board.indexOf(number);
-    if (playerBoardIndex !== -1) {
+    if (playerBoardIndex !== -1 && !player.markedCells[playerBoardIndex]) {
       const newPlayerMarkedCells = [...player.markedCells];
       newPlayerMarkedCells[playerBoardIndex] = true;
       const playerCompletedLines = checkWin(newPlayerMarkedCells);
@@ -153,7 +155,7 @@ const ComputerGame = () => {
 
     // Update computer's board
     const computerBoardIndex = computer.board.indexOf(number);
-    if (computerBoardIndex !== -1) {
+    if (computerBoardIndex !== -1 && !computer.markedCells[computerBoardIndex]) {
       const newComputerMarkedCells = [...computer.markedCells];
       newComputerMarkedCells[computerBoardIndex] = true;
       const computerCompletedLines = checkWin(newComputerMarkedCells);
@@ -176,7 +178,11 @@ const ComputerGame = () => {
   };
 
   const handlePlayerMove = (index: number) => {
-    if (currentTurn !== "player" || winner) return;
+    if (currentTurn !== "player" || winner || !gameStarted) return;
+    
+    // Check if the cell is already marked
+    if (player.markedCells[index]) return;
+    
     const selectedNumber = player.board[index];
     markNumber(selectedNumber);
   };
