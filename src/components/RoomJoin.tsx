@@ -8,9 +8,6 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { RefreshCw, Copy } from "lucide-react";
-import axios from "axios";
-
-const API_URL = "http://localhost:4000";
 
 const RoomJoin: React.FC = () => {
   const { 
@@ -19,8 +16,7 @@ const RoomJoin: React.FC = () => {
     setPlayerName, 
     setRoomId, 
     createRoom, 
-    joinRoom,
-    setServerConnected 
+    joinRoom
   } = useGame();
   
   const [showCreateOptions, setShowCreateOptions] = useState(false);
@@ -48,7 +44,7 @@ const RoomJoin: React.FC = () => {
     if (inputError) setInputError("");
   };
 
-  // Handle creating a room with server
+  // Handle creating a room
   const handleCreateRoom = async (isManual: boolean) => {
     if (!playerName || playerName.trim() === "") {
       setInputError("Please enter your name");
@@ -61,17 +57,8 @@ const RoomJoin: React.FC = () => {
       // Generate a random room ID
       const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
       
-      // Create room on server
-      const response = await axios.post(`${API_URL}/api/room`, {
-        roomCode: newRoomId,
-        username: playerName.trim()
-      });
-
-      console.log("Room created:", response.data);
-      
       // Set the room ID in context
       setRoomId(newRoomId);
-      setServerConnected(true);
       
       // Create room locally
       createRoom(isManual);
@@ -109,30 +96,17 @@ const RoomJoin: React.FC = () => {
     try {
       setIsLoading(true);
       
-      // Join room on server
-      const response = await axios.post(`${API_URL}/api/room`, {
-        roomCode: trimmedRoomId,
-        username: playerName.trim()
-      });
-      
-      console.log("Room joined:", response.data);
-      
       // Set the room ID in context
       setRoomId(trimmedRoomId);
-      setServerConnected(true);
       
       // Join room locally
       joinRoom();
       
       toast.success("Room joined successfully!");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error joining room:", error);
-      if (error.response && error.response.status === 400) {
-        toast.error("Room is full. Please join another room.");
-      } else {
-        toast.error("Failed to join room. Please check if the room ID is correct.");
-      }
       setInputError("Failed to join room");
+      toast.error("Failed to join room. Please try again.");
     } finally {
       setIsLoading(false);
     }

@@ -23,7 +23,7 @@ const ManualBoardSetup = () => {
   // Handle board creation
   const handleCreateBoard = () => {
     if (manualNumbers.length === 25) {
-      finishManualSetup();
+      finishManualSetup(manualNumbers);
     }
   };
   

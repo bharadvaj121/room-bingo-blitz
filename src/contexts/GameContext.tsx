@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Socket } from "socket.io-client";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
@@ -39,6 +40,8 @@ interface GameContextProps {
   setSocket: (socket: Socket | null) => void;
   setServerConnected: (connected: boolean) => void;
   setCalledNumber: (number: number) => void;
+  manualNumbers: number[];
+  addManualNumber: (num: number) => void;
 }
 
 // Create context
@@ -61,6 +64,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [lastClickedNumber, setLastClickedNumber] = useState<number | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [serverConnected, setServerConnected] = useState<boolean>(false);
+  const [manualNumbers, setManualNumbers] = useState<number[]>([]);
 
   // Load game state from localStorage on component mount
   useEffect(() => {
@@ -134,7 +138,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setWinner(null);
     setIsManualMode(isManual);
     
+    // Clear manual numbers array
+    setManualNumbers([]);
+    
     console.log("Room created with player:", player);
+  };
+  
+  // Add a manual number
+  const addManualNumber = (num: number) => {
+    if (manualNumbers.length < 25 && !manualNumbers.includes(num)) {
+      setManualNumbers(prev => [...prev, num]);
+    }
   };
   
   // Join an existing room
@@ -324,6 +338,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     lastClickedNumber,
     socket,
     serverConnected,
+    manualNumbers,
     setPlayerName: handlePlayerNameChange,
     setRoomId: handleRoomIdChange,
     joinRoom,
@@ -334,7 +349,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     resetGame,
     setSocket,
     setServerConnected,
-    setCalledNumber
+    setCalledNumber,
+    addManualNumber
   };
   
   return (
