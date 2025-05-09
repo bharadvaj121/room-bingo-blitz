@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useGame } from "@/contexts/GameContext";
 import { cn } from "@/lib/utils";
@@ -25,20 +24,34 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
   const { markCell, gameStatus, winner, lastClickedPlayer, lastClickedNumber } = useGame();
 
   const handleCellClick = (index: number) => {
-    console.log("Cell clicked in BingoBoard:", index, "onCellClick function:", !!onCellClick);
+    // Log click for debugging
+    console.log("Cell clicked in BingoBoard:", index, "isCurrentPlayer:", isCurrentPlayer, "gameStatus:", gameStatus);
+    
+    if (markedCells[index]) {
+      console.log("Cell already marked:", index);
+      return; // Don't process clicks on already marked cells
+    }
     
     if (onCellClick) {
       // For computer game mode or custom click handler
+      console.log("Using custom onCellClick handler");
       onCellClick(index);
       return;
     }
     
-    // Only for multiplayer mode
-    if (gameStatus !== "playing" || markedCells[index]) {
-      console.log("Cell already marked or game not playing:", { gameStatus, markedCells: markedCells[index] });
+    // Only current player should be able to mark cells in multiplayer mode
+    if (!isCurrentPlayer) {
+      console.log("Not current player's turn");
       return;
     }
     
+    // Only allow marking cells if the game is in playing status
+    if (gameStatus !== "playing") {
+      console.log("Game not in playing state");
+      return;
+    }
+    
+    console.log("Marking cell in game context");
     // Mark the cell in the game context (for multiplayer)
     markCell(index);
   };
@@ -102,10 +115,9 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
             className={cn(
               "bingo-cell relative",
               markedCells[index] ? "marked" : "",
-              (markedCells[index] || (!isCurrentPlayer && gameStatus !== "playing" && !onCellClick)) ? "disabled" : "",
               number === lastClickedNumber && "bg-bingo-accent/50"
             )}
-            disabled={markedCells[index] || ((!isCurrentPlayer || gameStatus !== "playing") && !onCellClick)}
+            disabled={false} // Remove the disabled attribute to allow clicking
             onClick={() => handleCellClick(index)}
             aria-label={`Bingo cell ${number}`}
           >

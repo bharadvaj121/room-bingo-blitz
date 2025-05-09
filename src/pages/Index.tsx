@@ -5,7 +5,7 @@ import RoomJoin from "@/components/RoomJoin";
 import GameRoom from "@/components/GameRoom";
 import ComputerGame from "@/components/ComputerGame";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Computer, Users, ServerCrash, Info } from "lucide-react";
+import { Computer, Users, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 
@@ -17,7 +17,7 @@ const Game: React.FC = () => {
     const checkServerConnection = async () => {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // Increased timeout
         
         const response = await fetch("http://localhost:4000/health", {
           signal: controller.signal
@@ -31,21 +31,17 @@ const Game: React.FC = () => {
         } else {
           console.log("Server is not available");
           setServerConnected(false);
-          if (roomId) {
-            toast.warning("Server connection unavailable. Playing in offline mode.");
-          }
+          toast.info("Server connection unavailable. Playing in offline mode.");
         }
       } catch (error) {
         console.log("Server connection error:", error);
         setServerConnected(false);
-        if (roomId) {
-          toast.warning("Server connection unavailable. Playing in offline mode.");
-        }
+        toast.info("Server connection unavailable. Playing in offline mode.");
       }
     };
     
     checkServerConnection();
-  }, [setServerConnected, roomId]);
+  }, [setServerConnected]);
 
   return (
     <div className="min-h-screen py-8 px-4 bg-gradient-to-b from-blue-50 to-purple-50">
