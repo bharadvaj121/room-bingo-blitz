@@ -9,7 +9,10 @@ import { Computer, Users, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Game: React.FC = () => {
-  const { roomId } = useGame();
+  const { roomId, isManualMode, showBoardSelectionDialog } = useGame();
+
+  // Don't show GameRoom while we're in board selection mode for joining a room
+  const shouldShowGameRoom = roomId && !showBoardSelectionDialog;
 
   return (
     <div className="min-h-screen py-8 px-4 bg-gradient-to-b from-blue-50 to-purple-50">
@@ -17,7 +20,7 @@ const Game: React.FC = () => {
         Bingo Blitz
       </h1>
       
-      {!roomId ? (
+      {!shouldShowGameRoom ? (
         <Tabs defaultValue="multiplayer" className="w-full max-w-4xl mx-auto">
           <TabsList className="grid w-full grid-cols-2 mb-8">
             <TabsTrigger value="computer" className="flex gap-2 items-center">

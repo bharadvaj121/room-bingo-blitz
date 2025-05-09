@@ -16,7 +16,9 @@ const RoomJoin: React.FC = () => {
     setPlayerName, 
     setRoomId, 
     createRoom, 
-    joinRoom
+    joinRoom,
+    showBoardSelectionDialog,
+    completeJoinRoom
   } = useGame();
   
   const [showCreateOptions, setShowCreateOptions] = useState(false);
@@ -99,7 +101,7 @@ const RoomJoin: React.FC = () => {
       // Set the room ID in context
       setRoomId(trimmedRoomId);
       
-      // Join room locally
+      // Join room locally - this will now show the board selection dialog
       joinRoom();
       
       toast.success("Room joined successfully!");
@@ -205,6 +207,29 @@ const RoomJoin: React.FC = () => {
                       {isLoading ? (
                         <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                       ) : null}
+                      Manual Setup
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Board Selection Dialog for Joining a Room */}
+              <Dialog open={showBoardSelectionDialog} onOpenChange={() => {}}>
+                <DialogContent className="bg-bingo-card border-2 border-bingo-border">
+                  <DialogHeader>
+                    <DialogTitle className="text-bingo-border text-xl">Choose Your Board Setup</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex flex-col sm:flex-row gap-4 py-4">
+                    <Button 
+                      onClick={() => completeJoinRoom(false)}
+                      className="flex-1 bg-bingo-accent hover:bg-bingo-accent/80 text-bingo-text"
+                    >
+                      Random Numbers
+                    </Button>
+                    <Button 
+                      onClick={() => completeJoinRoom(true)}
+                      className="flex-1 bg-bingo-border hover:bg-bingo-border/80 text-white"
+                    >
                       Manual Setup
                     </Button>
                   </div>

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
 import { toast } from "sonner";
@@ -25,9 +26,11 @@ interface GameContextProps {
   isManualMode: boolean;
   lastClickedPlayer: string | null;
   lastClickedNumber: number | null;
+  showBoardSelectionDialog: boolean;
   setPlayerName: (name: string) => void;
   setRoomId: (id: string) => void;
   joinRoom: () => void;
+  completeJoinRoom: (isManual: boolean) => void;
   leaveRoom: () => void;
   createRoom: (isManual: boolean) => void;
   markCell: (index: number) => void;
@@ -154,9 +157,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
+    // Show board selection dialog first - don't create the player yet
+    setIsManualMode(false);
+    setShowBoardSelectionDialog(true);
+  };
+  
+  // New state for board selection dialog
+  const [showBoardSelectionDialog, setShowBoardSelectionDialog] = useState(false);
+  
+  // Complete join process with board selection
+  const completeJoinRoom = (isManual: boolean) => {
     // Create a player object for the current player
     const playerId = generatePlayerId();
-    const playerBoard = generateBingoBoard();
+    const playerBoard = isManual ? Array(25).fill(0) : generateBingoBoard();
     
     const player: Player = {
       id: playerId,
@@ -183,7 +196,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentPlayer(player);
     setGameStatus("playing");
     setWinner(null);
-    setIsManualMode(false);
+    setIsManualMode(isManual);
+    setShowBoardSelectionDialog(false);
     
     console.log("Joined room with player:", player);
   };
@@ -233,8 +247,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const completedLines = checkWin(updatedPlayer.markedCells);
     updatedPlayer.completedLines = completedLines;
     
-    // Check if the player has won (3 completed lines)
-    if (completedLines >= 3) {
+    // Check if the player has won (changed from 3 to 5 completed lines)
+    if (completedLines >= 5) {
       setGameStatus("finished");
       setWinner(updatedPlayer);
       toast.success(`${updatedPlayer.name} wins with BINGO!`);
@@ -331,9 +345,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     lastClickedPlayer,
     lastClickedNumber,
     manualNumbers,
+    showBoardSelectionDialog,
     setPlayerName: handlePlayerNameChange,
     setRoomId: handleRoomIdChange,
     joinRoom,
+    completeJoinRoom,
     leaveRoom,
     createRoom,
     markCell,
