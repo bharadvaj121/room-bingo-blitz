@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { Socket } from "socket.io-client";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
 import { toast } from "sonner";
 
@@ -26,8 +25,6 @@ interface GameContextProps {
   isManualMode: boolean;
   lastClickedPlayer: string | null;
   lastClickedNumber: number | null;
-  socket: Socket | null;
-  serverConnected: boolean;
   setPlayerName: (name: string) => void;
   setRoomId: (id: string) => void;
   joinRoom: () => void;
@@ -36,8 +33,6 @@ interface GameContextProps {
   markCell: (index: number) => void;
   finishManualSetup: (boardNumbers: number[]) => void;
   resetGame: () => void;
-  setSocket: (socket: Socket | null) => void;
-  setServerConnected: (connected: boolean) => void;
   setCalledNumber: (number: number) => void;
   manualNumbers: number[];
   addManualNumber: (num: number) => void;
@@ -61,8 +56,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isManualMode, setIsManualMode] = useState<boolean>(false);
   const [lastClickedPlayer, setLastClickedPlayer] = useState<string | null>(null);
   const [lastClickedNumber, setLastClickedNumber] = useState<number | null>(null);
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [serverConnected, setServerConnected] = useState<boolean>(false);
   const [manualNumbers, setManualNumbers] = useState<number[]>([]);
 
   // Load game state from localStorage on component mount
@@ -203,15 +196,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setGameStatus("playing");
     setWinner(null);
     setIsManualMode(false);
-    setServerConnected(false);
     setLastClickedPlayer(null);
     setLastClickedNumber(null);
-    
-    // Disconnect socket
-    if (socket) {
-      socket.disconnect();
-      setSocket(null);
-    }
     
     // Remove room ID from localStorage
     localStorage.removeItem("bingoRoomId");
@@ -314,7 +300,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Handle called number from server
   const setCalledNumber = (number: number) => {
-    console.log("Number called from server:", number);
+    console.log("Number called:", number);
     
     if (!currentPlayer || gameStatus !== "playing") {
       return;
@@ -344,8 +330,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isManualMode,
     lastClickedPlayer,
     lastClickedNumber,
-    socket,
-    serverConnected,
     manualNumbers,
     setPlayerName: handlePlayerNameChange,
     setRoomId: handleRoomIdChange,
@@ -355,8 +339,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     markCell,
     finishManualSetup,
     resetGame,
-    setSocket,
-    setServerConnected,
     setCalledNumber,
     addManualNumber
   };
