@@ -1,73 +1,59 @@
-# Welcome to your Lovable project
 
-## Project info
+# Bingo Blitz Multiplayer Game
 
-**URL**: https://lovable.dev/projects/f6d81073-1c0f-4791-a63a-c729b592286c
+A real-time multiplayer Bingo game where users can create rooms and play with friends.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- Play against the computer
+- Real-time multiplayer
+- Create and join game rooms
+- Manual or random board setup
+- Win detection with completed lines
 
-**Use Lovable**
+## Setup Instructions
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/f6d81073-1c0f-4791-a63a-c729b592286c) and start prompting.
+### Option 1: Play in Offline Mode
 
-Changes made via Lovable will be committed automatically to this repo.
+1. Toggle the "Offline Mode" switch on the home page
+2. Play with simulated multiplayer functionality (all players will be on the same device)
 
-**Use your preferred IDE**
+### Option 2: Set up the Server for Real Multiplayer
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+1. Make sure you have Node.js installed
+2. Install dependencies:
+   ```
+   npm install
+   ```
+3. Start the backend server:
+   ```
+   node server.js
+   ```
+4. Start the frontend development server:
+   ```
+   npm run dev
+   ```
+5. Open your browser and navigate to the local development server URL (typically http://localhost:5173)
+6. Share the URL with friends on the same network to play together
+7. Make sure to keep the "Online Mode" toggle enabled
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Playing with Friends Online
 
-Follow these steps:
+For playing with friends over the internet, you'll need to:
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+1. Deploy the backend server to a hosting service like Heroku, Render, or Railway
+2. Update the SERVER_URL variable in src/contexts/GameContext.tsx to point to your deployed server
+3. Deploy the frontend to a service like Vercel, Netlify, or GitHub Pages
+4. Share the URL with friends to play together
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## How to Play
 
-# Step 3: Install the necessary dependencies.
-npm i
+1. Enter your name and create or join a room
+2. Choose between random or manual board setup
+3. Click numbers on your board when they're called
+4. Complete 5 rows, columns, or diagonals to win
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## Development
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/f6d81073-1c0f-4791-a63a-c729b592286c) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- Frontend: React, TypeScript, Tailwind CSS
+- Backend: Node.js, Socket.io

@@ -1,18 +1,25 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { GameProvider, useGame } from "@/contexts/GameContext";
 import RoomJoin from "@/components/RoomJoin";
 import GameRoom from "@/components/GameRoom";
 import ComputerGame from "@/components/ComputerGame";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Computer, Users, Info } from "lucide-react";
+import { Computer, Users, Info, Wifi, WifiOff } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const Game: React.FC = () => {
   const { roomId, isManualMode, showBoardSelectionDialog } = useGame();
+  const [offlineMode, setOfflineMode] = useState(false);
 
   // Don't show GameRoom while we're in board selection mode for joining a room
   const shouldShowGameRoom = roomId && !showBoardSelectionDialog;
+
+  const toggleOfflineMode = () => {
+    setOfflineMode(!offlineMode);
+  };
 
   return (
     <div className="min-h-screen py-8 px-4 bg-gradient-to-b from-blue-50 to-purple-50">
@@ -21,32 +28,60 @@ const Game: React.FC = () => {
       </h1>
       
       {!shouldShowGameRoom ? (
-        <Tabs defaultValue="multiplayer" className="w-full max-w-4xl mx-auto">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
-            <TabsTrigger value="computer" className="flex gap-2 items-center">
-              <Computer className="w-4 h-4" />
-              Play with Computer
-            </TabsTrigger>
-            <TabsTrigger value="multiplayer" className="flex gap-2 items-center">
-              <Users className="w-4 h-4" />
-              Multiplayer
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="computer">
-            <ComputerGame />
-          </TabsContent>
-          <TabsContent value="multiplayer">
-            <RoomJoin />
-            <div className="mt-4">
-              <Alert className="bg-yellow-50 border-yellow-200">
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  Play multiplayer mode with your friends by sharing the Room ID.
-                </AlertDescription>
-              </Alert>
+        <>
+          <div className="flex justify-end max-w-4xl mx-auto mb-4">
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="offline-mode" className="flex items-center gap-2">
+                {offlineMode ? <WifiOff className="h-4 w-4" /> : <Wifi className="h-4 w-4" />}
+                {offlineMode ? "Offline Mode (No server)" : "Online Mode"}
+              </Label>
+              <Switch
+                id="offline-mode"
+                checked={offlineMode}
+                onCheckedChange={toggleOfflineMode}
+              />
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+          
+          {offlineMode && (
+            <Alert className="w-full max-w-4xl mx-auto mb-4 bg-yellow-50 border-yellow-200">
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Playing in offline mode. Multiplayer functionality is simulated locally.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          <Tabs defaultValue="multiplayer" className="w-full max-w-4xl mx-auto">
+            <TabsList className="grid w-full grid-cols-2 mb-8">
+              <TabsTrigger value="computer" className="flex gap-2 items-center">
+                <Computer className="w-4 h-4" />
+                Play with Computer
+              </TabsTrigger>
+              <TabsTrigger value="multiplayer" className="flex gap-2 items-center">
+                <Users className="w-4 h-4" />
+                Multiplayer
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="computer">
+              <ComputerGame />
+            </TabsContent>
+            <TabsContent value="multiplayer">
+              <RoomJoin />
+              <div className="mt-4">
+                <Alert className="bg-yellow-50 border-yellow-200">
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    {offlineMode ? 
+                      "Play multiplayer mode with your friends with simulated functionality (offline)." :
+                      "Play multiplayer mode with your friends by sharing the Room ID."
+                    }
+                  </AlertDescription>
+                </Alert>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </>
       ) : (
         <GameRoom />
       )}

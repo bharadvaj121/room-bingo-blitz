@@ -1,7 +1,8 @@
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
 import { toast } from "sonner";
+import { io, Socket } from "socket.io-client";
 
 // Player type definition
 type Player = {
@@ -47,6 +48,9 @@ const GameContext = createContext<GameContextProps | undefined>(undefined);
 // Generate player ID
 const generatePlayerId = () => `player-${Math.random().toString(36).substring(2, 9)}`;
 
+// Server URL - change this to your server's URL when deployed
+const SERVER_URL = "http://localhost:3001";
+
 // Provider component
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // State
@@ -60,6 +64,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [lastClickedPlayer, setLastClickedPlayer] = useState<string | null>(null);
   const [lastClickedNumber, setLastClickedNumber] = useState<number | null>(null);
   const [manualNumbers, setManualNumbers] = useState<number[]>([]);
+  const [showBoardSelectionDialog, setShowBoardSelectionDialog] = useState(false);
+  
+  // Socket.io connection
+  const socketRef = useRef<Socket | null>(null);
 
   // Load game state from localStorage on component mount
   useEffect(() => {
@@ -88,6 +96,70 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem("bingoRoomId");
     }
   }, [roomId]);
+
+  // Connect to Socket.io server when roomId changes
+  useEffect(() => {
+    // Only connect if we have a roomId and player name
+    if (roomId && playerName && !isManualMode) {
+      if (!socketRef.current) {
+        console.log("Connecting to socket server...");
+        socketRef.current = io(SERVER_URL);
+        
+        // Set up event listeners
+        socketRef.current.on("connect", () => {
+          console.log("Connected to socket server");
+        });
+        
+        socketRef.current.on("connect_error", (error) => {
+          console.error("Socket connection error:", error);
+          toast.error("Failed to connect to game server. Playing in offline mode.");
+        });
+        
+        socketRef.current.on("playersUpdate", (data) => {
+          console.log("Players update received:", data);
+          setPlayers(data.players);
+          setGameStatus(data.gameStatus);
+          if (data.winner) setWinner(data.winner);
+          
+          // Update current player
+          if (currentPlayer) {
+            const updatedCurrentPlayer = data.players.find((p: Player) => p.id === currentPlayer.id);
+            if (updatedCurrentPlayer) {
+              setCurrentPlayer(updatedCurrentPlayer);
+            }
+          }
+        });
+        
+        socketRef.current.on("numberCalled", (data) => {
+          console.log("Number called:", data);
+          setLastClickedPlayer(data.playerName);
+          setLastClickedNumber(data.number);
+          toast.info(`${data.playerName} called: ${data.number}`);
+        });
+        
+        socketRef.current.on("gameReset", () => {
+          console.log("Game reset received");
+          resetGame();
+        });
+      }
+      
+      // If we have a current player and we're connected, join/create the room
+      if (currentPlayer && socketRef.current.connected) {
+        socketRef.current.emit("joinRoom", {
+          roomId,
+          player: currentPlayer
+        });
+      }
+    }
+    
+    // Clean up socket connection when leaving room
+    return () => {
+      if (socketRef.current && roomId) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [roomId, currentPlayer, isManualMode]);
 
   // Handle player name change
   const handlePlayerNameChange = (name: string) => {
@@ -132,6 +204,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setManualNumbers([]);
     
     console.log("Room created with player:", player);
+    
+    // If we have a socketRef, emit join room event
+    if (socketRef.current && !isManual) {
+      socketRef.current.emit("joinRoom", {
+        roomId,
+        player
+      });
+    }
   };
   
   // Add a manual number
@@ -161,9 +241,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsManualMode(false);
     setShowBoardSelectionDialog(true);
   };
-  
-  // New state for board selection dialog
-  const [showBoardSelectionDialog, setShowBoardSelectionDialog] = useState(false);
   
   // Complete join process with board selection
   const completeJoinRoom = (isManual: boolean) => {
@@ -200,10 +277,26 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setShowBoardSelectionDialog(false);
     
     console.log("Joined room with player:", player);
+    
+    // If we have a socketRef and we're not in manual mode, emit join room event
+    if (socketRef.current && !isManual) {
+      socketRef.current.emit("joinRoom", {
+        roomId,
+        player
+      });
+    }
   };
   
   // Leave the current room
   const leaveRoom = () => {
+    // If we have a socket and roomId, emit leave room event
+    if (socketRef.current && roomId && currentPlayer) {
+      socketRef.current.emit("leaveRoom", {
+        roomId,
+        playerId: currentPlayer.id
+      });
+    }
+    
     setRoomId(null);
     setPlayers([]);
     setCurrentPlayer(null);
@@ -247,7 +340,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const completedLines = checkWin(updatedPlayer.markedCells);
     updatedPlayer.completedLines = completedLines;
     
-    // Check if the player has won (changed from 3 to 5 completed lines)
+    // Check if the player has won (5 or more completed lines)
     if (completedLines >= 5) {
       setGameStatus("finished");
       setWinner(updatedPlayer);
@@ -268,6 +361,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     
     console.log("Cell marked at index:", index, "with number:", updatedPlayer.board[index]);
+    
+    // If we have a socket and roomId, emit mark cell event
+    if (socketRef.current && roomId) {
+      socketRef.current.emit("markCell", {
+        roomId,
+        playerId: updatedPlayer.id,
+        cellIndex: index,
+        markedNumber: updatedPlayer.board[index]
+      });
+    }
   };
   
   // Finish manual board setup
@@ -297,10 +400,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsManualMode(false);
     
     console.log("Manual board setup completed");
+    
+    // If we have a socket and roomId, emit update player event
+    if (socketRef.current && roomId) {
+      socketRef.current.emit("joinRoom", {
+        roomId,
+        player: updatedPlayer
+      });
+    }
   };
   
   // Reset the game
   const resetGame = () => {
+    // If we have a socket and roomId, emit reset game event
+    if (socketRef.current && roomId) {
+      socketRef.current.emit("resetGame", {
+        roomId
+      });
+    }
+    
     setPlayers([]);
     setCurrentPlayer(null);
     setGameStatus("playing");
