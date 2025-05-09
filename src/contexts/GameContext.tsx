@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Socket } from "socket.io-client";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
@@ -70,14 +69,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     try {
       const storedPlayerName = localStorage.getItem("bingoPlayerName");
-      const storedRoomId = localStorage.getItem("bingoRoomId");
-      
       if (storedPlayerName) {
         setPlayerName(storedPlayerName);
       }
-      
-      // Don't automatically connect to room on initial load
-      // as we need to check if the room still exists on server
     } catch (error) {
       console.error("Error loading game state from localStorage:", error);
     }
@@ -210,6 +204,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setWinner(null);
     setIsManualMode(false);
     setServerConnected(false);
+    setLastClickedPlayer(null);
+    setLastClickedNumber(null);
     
     // Disconnect socket
     if (socket) {
@@ -227,6 +223,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const markCell = (index: number) => {
     if (!currentPlayer || gameStatus !== "playing") {
       console.log("Cannot mark cell: no current player or game not in playing state");
+      return;
+    }
+    
+    // Check if the cell is already marked
+    if (currentPlayer.markedCells[index]) {
+      console.log("Cell already marked at index:", index);
       return;
     }
     
@@ -264,6 +266,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return player;
       });
     });
+    
+    console.log("Cell marked at index:", index, "with number:", updatedPlayer.board[index]);
   };
   
   // Finish manual board setup
@@ -310,6 +314,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Handle called number from server
   const setCalledNumber = (number: number) => {
+    console.log("Number called from server:", number);
+    
     if (!currentPlayer || gameStatus !== "playing") {
       return;
     }
@@ -319,6 +325,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (index !== -1) {
       // Mark the cell
       markCell(index);
+      
+      toast.info(`Number called: ${number}`);
     }
     
     // Update last clicked number for all players

@@ -1,14 +1,51 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { GameProvider, useGame } from "@/contexts/GameContext";
 import RoomJoin from "@/components/RoomJoin";
 import GameRoom from "@/components/GameRoom";
 import ComputerGame from "@/components/ComputerGame";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Computer, Users } from "lucide-react";
+import { Computer, Users, ServerCrash, Info } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "sonner";
 
 const Game: React.FC = () => {
-  const { roomId } = useGame();
+  const { roomId, setServerConnected } = useGame();
+
+  // Check server connection on component mount
+  useEffect(() => {
+    const checkServerConnection = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        
+        const response = await fetch("http://localhost:4000/health", {
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          console.log("Server is running");
+          setServerConnected(true);
+        } else {
+          console.log("Server is not available");
+          setServerConnected(false);
+          if (roomId) {
+            toast.warning("Server connection unavailable. Playing in offline mode.");
+          }
+        }
+      } catch (error) {
+        console.log("Server connection error:", error);
+        setServerConnected(false);
+        if (roomId) {
+          toast.warning("Server connection unavailable. Playing in offline mode.");
+        }
+      }
+    };
+    
+    checkServerConnection();
+  }, [setServerConnected, roomId]);
 
   return (
     <div className="min-h-screen py-8 px-4 bg-gradient-to-b from-blue-50 to-purple-50">
@@ -33,15 +70,20 @@ const Game: React.FC = () => {
           </TabsContent>
           <TabsContent value="multiplayer">
             <RoomJoin />
+            <div className="mt-4">
+              <Alert className="bg-yellow-50 border-yellow-200">
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  For multiplayer mode, make sure the backend server is running at http://localhost:4000.
+                  You can still play locally if the server is not available.
+                </AlertDescription>
+              </Alert>
+            </div>
           </TabsContent>
         </Tabs>
       ) : (
         <GameRoom />
       )}
-      
-      <div className="mt-8 text-center text-sm text-gray-500">
-        <p>Make sure the backend server is running at http://localhost:4000</p>
-      </div>
     </div>
   );
 };

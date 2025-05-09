@@ -11,7 +11,7 @@ interface BingoBoardProps {
   isCurrentPlayer: boolean;
   playerName: string;
   isWinner?: boolean;
-  onCellClick?: (number: number) => void;
+  onCellClick?: (index: number) => void;
 }
 
 const BingoBoard: React.FC<BingoBoardProps> = ({ 
@@ -34,8 +34,8 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     }
     
     // Only for multiplayer mode
-    if (markedCells[index]) {
-      // Cell already marked
+    if (gameStatus !== "playing" || markedCells[index]) {
+      console.log("Cell already marked or game not playing:", { gameStatus, markedCells: markedCells[index] });
       return;
     }
     

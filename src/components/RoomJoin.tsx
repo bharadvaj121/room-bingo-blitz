@@ -90,7 +90,7 @@ const RoomJoin: React.FC = () => {
       return;
     }
     
-    const trimmedRoomId = localRoomId.trim();
+    const trimmedRoomId = localRoomId.trim().toUpperCase();
     console.log("Attempting to join room with ID:", trimmedRoomId);
     
     try {
