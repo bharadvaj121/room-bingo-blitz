@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { RefreshCw, Copy } from "lucide-react";
+import { RefreshCw, Copy, Wifi, WifiOff } from "lucide-react";
 
 const RoomJoin: React.FC = () => {
   const { 
@@ -18,7 +18,8 @@ const RoomJoin: React.FC = () => {
     createRoom, 
     joinRoom,
     showBoardSelectionDialog,
-    completeJoinRoom
+    completeJoinRoom,
+    serverStatus
   } = useGame();
   
   const [showCreateOptions, setShowCreateOptions] = useState(false);
@@ -62,7 +63,7 @@ const RoomJoin: React.FC = () => {
       // Set the room ID in context
       setRoomId(newRoomId);
       
-      // Create room locally
+      // Create room
       createRoom(isManual);
       setShowCreateOptions(false);
       
@@ -101,7 +102,7 @@ const RoomJoin: React.FC = () => {
       // Set the room ID in context
       setRoomId(trimmedRoomId);
       
-      // Join room locally - this will now show the board selection dialog
+      // Join room - this will now show the board selection dialog
       joinRoom();
       
       toast.success("Room joined successfully!");
@@ -122,6 +123,9 @@ const RoomJoin: React.FC = () => {
       .catch(err => console.error("Failed to copy room ID:", err));
   };
 
+  // Determine if we're in online or offline mode
+  const isOnlineMode = serverStatus === "online";
+
   return (
     <div className="w-full max-w-md mx-auto">
       <Card className="bg-bingo-card border-4 border-bingo-border shadow-lg">
@@ -129,6 +133,19 @@ const RoomJoin: React.FC = () => {
           <CardTitle className="text-3xl font-bold text-center text-bingo-text">
             Bingo Blitz
           </CardTitle>
+          <div className="flex justify-center">
+            {isOnlineMode ? (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <Wifi className="w-3 h-3 mr-1" />
+                Online Mode
+              </span>
+            ) : (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                <WifiOff className="w-3 h-3 mr-1" />
+                Local Mode
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -275,7 +292,9 @@ const RoomJoin: React.FC = () => {
         </CardContent>
         <CardFooter className="pt-0 opacity-70 text-xs text-center justify-center">
           <p>
-            Join a local multiplayer game with friends!
+            {isOnlineMode 
+              ? "Join an online multiplayer game with your friends!"
+              : "Join a local multiplayer game with friends on this device!"}
           </p>
         </CardFooter>
       </Card>
