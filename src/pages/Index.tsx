@@ -12,17 +12,26 @@ import { toast } from "sonner";
 
 const Game: React.FC = () => {
   const { roomId, showBoardSelectionDialog, serverStatus, checkServerStatus } = useGame();
-  const [isServerOnline, setIsServerOnline] = useState<boolean | null>(null);
+  const [isServerChecking, setIsServerChecking] = useState(true);
 
   // Check server status on component mount
   useEffect(() => {
-    checkServerStatus()
-      .then(online => {
-        setIsServerOnline(online);
+    const checkStatus = async () => {
+      setIsServerChecking(true);
+      try {
+        const online = await checkServerStatus();
         if (!online) {
-          toast.error("Failed to connect to game server. Please ensure the server is running.");
+          toast.error("Failed to connect to game server. Playing in local mode.");
         }
-      });
+      } catch (error) {
+        console.error("Error checking server status:", error);
+        toast.error("Error checking server connection. Playing in local mode.");
+      } finally {
+        setIsServerChecking(false);
+      }
+    };
+    
+    checkStatus();
   }, [checkServerStatus]);
 
   // Don't show GameRoom while we're in board selection mode for joining a room
@@ -35,18 +44,18 @@ const Game: React.FC = () => {
       </h1>
       
       <div className="flex items-center justify-center mb-6">
-        {isServerOnline === null ? (
+        {isServerChecking ? (
           <Badge variant="outline" className="flex items-center gap-1">
             <span className="block w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span> 
             Checking Server...
           </Badge>
-        ) : isServerOnline ? (
+        ) : serverStatus === "online" ? (
           <Badge variant="outline" className="bg-green-100 text-green-800 flex items-center gap-1">
             <Wifi className="w-3 h-3" /> Online Mode
           </Badge>
         ) : (
           <Badge variant="outline" className="bg-red-100 text-red-800 flex items-center gap-1">
-            <WifiOff className="w-3 h-3" /> Server Offline
+            <WifiOff className="w-3 h-3" /> Local Mode
           </Badge>
         )}
       </div>
@@ -73,7 +82,7 @@ const Game: React.FC = () => {
                 <Alert className="bg-yellow-50 border-yellow-200">
                   <Info className="h-4 w-4" />
                   <AlertDescription>
-                    {isServerOnline 
+                    {serverStatus === "online" 
                       ? "Play online multiplayer with your friends! Share the Room ID with them to join the same game."
                       : "Server is offline. All players must use the same device to play in local multiplayer mode."}
                   </AlertDescription>

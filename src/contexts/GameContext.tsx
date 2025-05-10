@@ -53,26 +53,30 @@ interface GameContextProps {
 // Create context
 const GameContext = createContext<GameContextProps | undefined>(undefined);
 
-// Initialize Socket.io connection
+// Initialize Socket.io connection with better error handling
 const initializeSocket = (): Socket => {
   if (!socket) {
-    socket = io(SERVER_URL, {
-      transports: ['websocket'],
-      reconnectionAttempts: 3,
-      timeout: 5000
-    });
+    try {
+      socket = io(SERVER_URL, {
+        transports: ['websocket'],
+        reconnectionAttempts: 3,
+        timeout: 10000 // Increased timeout
+      });
 
-    console.log("Socket initialization attempt");
+      console.log("Socket initialization attempt");
 
-    socket.on("connect", () => {
-      console.log("Connected to server:", socket?.id);
-    });
+      socket.on("connect", () => {
+        console.log("Connected to server:", socket?.id);
+      });
 
-    socket.on("connect_error", (err) => {
-      console.error("Connection error:", err.message);
-    });
+      socket.on("connect_error", (err) => {
+        console.error("Connection error:", err.message);
+      });
+    } catch (error) {
+      console.error("Socket initialization failed:", error);
+    }
   }
-  return socket;
+  return socket as Socket;
 };
 
 // Generate player ID
@@ -126,6 +130,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketInstance.on("join_success", (player) => {
         console.log("Join success:", player);
         setCurrentPlayer(player);
+        setShowBoardSelectionDialog(false); // Ensure dialog is closed on successful join
       });
       
       socketInstance.on("player_joined", (data) => {
@@ -183,9 +188,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (socket) {
         console.log("Disconnecting socket");
         socket.disconnect();
+        socket = null; // Reset socket so it can be reinitialized
       }
     };
-  }, [roomId]);
+  }, []);
   
   // Load game state from localStorage on component mount
   useEffect(() => {
@@ -206,67 +212,78 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [playerName]);
 
-  // Store room ID in localStorage when it changes
-  useEffect(() => {
-    if (roomId) {
-      localStorage.setItem("bingoRoomId", roomId);
-    } else {
-      localStorage.removeItem("bingoRoomId");
-    }
-  }, [roomId]);
-
-  // Check server status function
+  // Check server status function with better handling
   const checkServerStatus = useCallback((): Promise<boolean> => {
     return new Promise((resolve) => {
       setServerStatus("checking");
-      const socketInstance = initializeSocket();
       
-      // Set a timeout for the server check
-      const timeoutId = setTimeout(() => {
-        console.log("Server check timed out");
+      try {
+        const socketInstance = initializeSocket();
+        
+        // Set a timeout for the server check
+        const timeoutId = setTimeout(() => {
+          console.log("Server check timed out");
+          setServerStatus("offline");
+          resolve(false);
+        }, 5000);
+        
+        // Emit check_server event
+        if (socketInstance.connected) {
+          socketInstance.emit("check_server");
+          console.log("Emitted check_server event");
+        } else {
+          console.log("Socket not connected yet, waiting for connection");
+          
+          // Add one-time connect handler for initial connection
+          socketInstance.once("connect", () => {
+            socketInstance.emit("check_server");
+            console.log("Connected and emitted check_server event");
+          });
+        }
+        
+        // Listen for server_status event
+        socketInstance.once("server_status", (data) => {
+          clearTimeout(timeoutId);
+          const isOnline = data.status === "online";
+          console.log("Server status received:", data.status);
+          setServerStatus(isOnline ? "online" : "offline");
+          resolve(isOnline);
+        });
+        
+        // Also handle connect event
+        const onConnect = () => {
+          clearTimeout(timeoutId);
+          console.log("Connected to server during status check");
+          setServerStatus("online");
+          resolve(true);
+        };
+        
+        const onConnectError = (err: Error) => {
+          console.error("Connection error during status check:", err.message);
+          // Don't resolve here, let the timeout handle it
+        };
+        
+        // If socket is already connected, consider it online
+        if (socketInstance.connected) {
+          clearTimeout(timeoutId);
+          setServerStatus("online");
+          resolve(true);
+        }
+        
+        // Set up listeners
+        socketInstance.once("connect", onConnect);
+        socketInstance.once("connect_error", onConnectError);
+        
+        // Clean up listeners after check is complete
+        setTimeout(() => {
+          socketInstance.off("connect", onConnect);
+          socketInstance.off("connect_error", onConnectError);
+        }, 6000);
+      } catch (error) {
+        console.error("Error checking server status:", error);
         setServerStatus("offline");
         resolve(false);
-      }, 5000);
-      
-      // Emit check_server event
-      socketInstance.emit("check_server");
-      
-      // Listen for server_status event
-      socketInstance.once("server_status", (data) => {
-        clearTimeout(timeoutId);
-        const isOnline = data.status === "online";
-        setServerStatus(isOnline ? "online" : "offline");
-        resolve(isOnline);
-      });
-      
-      // Also handle connect/disconnect events
-      const onConnect = () => {
-        clearTimeout(timeoutId);
-        setServerStatus("online");
-        resolve(true);
-      };
-      
-      const onDisconnect = () => {
-        setServerStatus("offline");
-        resolve(false);
-      };
-      
-      // If socket is already connected, consider it online
-      if (socketInstance.connected) {
-        clearTimeout(timeoutId);
-        setServerStatus("online");
-        resolve(true);
       }
-      
-      // Set up listeners
-      socketInstance.once("connect", onConnect);
-      socketInstance.once("disconnect", onDisconnect);
-      
-      // Clean up listeners after check is complete
-      setTimeout(() => {
-        socketInstance.off("connect", onConnect);
-        socketInstance.off("disconnect", onDisconnect);
-      }, 6000);
     });
   }, []);
 
@@ -299,35 +316,57 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Clear manual numbers array
     setManualNumbers([]);
     
-    // In online mode, we don't create the player yet
-    // We wait for the server to confirm the room creation
-    if (serverStatus === "online" && socket) {
-      // Reset any existing game state
-      setPlayers([]);
-      setCurrentPlayer(null);
-      setGameStatus("playing");
-      setWinner(null);
-      
-      console.log("Creating room on server");
-    } else {
-      // In offline mode, create a player object for the current player
-      const playerId = generatePlayerId();
-      const player: Player = {
-        id: playerId,
-        name: playerName,
-        board: playerBoard,
-        markedCells: Array(25).fill(false),
-        completedLines: 0
-      };
-      
-      // Set up the game
-      setPlayers([player]);
-      setCurrentPlayer(player);
-      setGameStatus("playing");
-      setWinner(null);
-      
-      console.log("Room created offline with player:", player);
-    }
+    // Check server status before proceeding
+    checkServerStatus().then(isOnline => {
+      if (isOnline && socket) {
+        // Reset any existing game state
+        setPlayers([]);
+        setCurrentPlayer(null);
+        setGameStatus("playing");
+        setWinner(null);
+        
+        console.log("Creating room on server");
+        
+        // Since this is create, we'll emit join_room with the new room ID
+        if (roomId) {
+          socket.emit("join_room", {
+            roomId,
+            playerName,
+            board: playerBoard
+          });
+        } else {
+          console.error("Room ID is null when trying to create room");
+          toast.error("Failed to create room: missing room ID");
+          
+          // Fallback to offline mode
+          createOfflineRoom(playerBoard);
+        }
+      } else {
+        console.log("Server offline, creating offline room");
+        createOfflineRoom(playerBoard);
+      }
+    });
+  };
+  
+  // Helper for creating offline rooms
+  const createOfflineRoom = (playerBoard: number[]) => {
+    // In offline mode, create a player object for the current player
+    const playerId = generatePlayerId();
+    const player: Player = {
+      id: playerId,
+      name: playerName,
+      board: playerBoard,
+      markedCells: Array(25).fill(false),
+      completedLines: 0
+    };
+    
+    // Set up the game
+    setPlayers([player]);
+    setCurrentPlayer(player);
+    setGameStatus("playing");
+    setWinner(null);
+    
+    console.log("Room created offline with player:", player);
   };
   
   // Add a manual number
@@ -339,8 +378,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Join an existing room
   const joinRoom = () => {
-    console.log("Joining room with ID:", roomId);
-    
     if (!playerName || playerName.trim() === "") {
       toast.error("Please enter your name");
       console.error("joinRoom called with empty playerName");
@@ -352,6 +389,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("joinRoom called with empty roomId");
       return;
     }
+    
+    console.log("Joining room with ID:", roomId);
     
     // Show board selection dialog first - don't create the player yet
     setIsManualMode(false);
@@ -366,48 +405,58 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set manual mode state
     setIsManualMode(isManual);
     
-    // Handle online vs offline mode differently
-    if (serverStatus === "online" && socket) {
-      // In online mode, send a join_room event to the server
-      socket.emit("join_room", {
-        roomId,
-        playerName,
-        board: playerBoard
-      });
-    } else {
-      // In offline mode, create a player object for the current player
-      const playerId = generatePlayerId();
-      const player: Player = {
-        id: playerId,
-        name: playerName,
-        board: playerBoard,
-        markedCells: Array(25).fill(false),
-        completedLines: 0
-      };
+    // Check server status before proceeding
+    checkServerStatus().then(isOnline => {
+      if (isOnline && socket && roomId) {
+        // In online mode, send a join_room event to the server
+        console.log("Joining online room:", roomId);
+        socket.emit("join_room", {
+          roomId,
+          playerName,
+          board: playerBoard
+        });
+      } else {
+        console.log("Server offline, joining offline room");
+        joinOfflineRoom(playerBoard);
+      }
       
-      // Add the player to the game
-      setPlayers(prevPlayers => {
-        // Check if this is a reconnection (same name already in room)
-        const existingPlayerIndex = prevPlayers.findIndex(p => p.name === playerName);
-        if (existingPlayerIndex !== -1) {
-          // Replace the existing player
-          const updatedPlayers = [...prevPlayers];
-          updatedPlayers[existingPlayerIndex] = player;
-          return updatedPlayers;
-        }
-        // Otherwise add as a new player
-        return [...prevPlayers, player];
-      });
-      
-      setCurrentPlayer(player);
-    }
+      // Close the dialog regardless of online/offline mode
+      setShowBoardSelectionDialog(false);
+    });
+  };
+  
+  // Helper for joining offline rooms
+  const joinOfflineRoom = (playerBoard: number[]) => {
+    // In offline mode, create a player object for the current player
+    const playerId = generatePlayerId();
+    const player: Player = {
+      id: playerId,
+      name: playerName,
+      board: playerBoard,
+      markedCells: Array(25).fill(false),
+      completedLines: 0
+    };
     
-    setShowBoardSelectionDialog(false);
+    // Add the player to the game
+    setPlayers(prevPlayers => {
+      // Check if this is a reconnection (same name already in room)
+      const existingPlayerIndex = prevPlayers.findIndex(p => p.name === playerName);
+      if (existingPlayerIndex !== -1) {
+        // Replace the existing player
+        const updatedPlayers = [...prevPlayers];
+        updatedPlayers[existingPlayerIndex] = player;
+        return updatedPlayers;
+      }
+      // Otherwise add as a new player
+      return [...prevPlayers, player];
+    });
+    
+    setCurrentPlayer(player);
   };
   
   // Leave the current room
   const leaveRoom = () => {
-    // If online, send a leave_room event to the server
+    // Check if we're online and have necessary data
     if (serverStatus === "online" && socket && roomId && currentPlayer) {
       socket.emit("leave_room", {
         roomId,
@@ -424,6 +473,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsManualMode(false);
     setLastClickedPlayer(null);
     setLastClickedNumber(null);
+    setShowBoardSelectionDialog(false);
     
     // Remove room ID from localStorage
     localStorage.removeItem("bingoRoomId");

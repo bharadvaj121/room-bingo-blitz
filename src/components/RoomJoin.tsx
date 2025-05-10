@@ -60,24 +60,27 @@ const RoomJoin: React.FC = () => {
       // Generate a random room ID
       const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
       
-      // Set the room ID in context
+      // Set the room ID in context first - this is important!
       setRoomId(newRoomId);
       
-      // Create room
-      createRoom(isManual);
-      setShowCreateOptions(false);
-      
-      toast.success("Room created successfully!");
+      // Wait a bit to ensure room ID is set before creating room
+      setTimeout(() => {
+        // Create room
+        createRoom(isManual);
+        setShowCreateOptions(false);
+        
+        toast.success("Room created successfully!");
+        setIsLoading(false);
+      }, 100);
     } catch (error) {
       console.error("Error creating room:", error);
       toast.error("Failed to create room. Please try again.");
-    } finally {
       setIsLoading(false);
     }
   };
 
   // Handle joining a room with proper error validation
-  const handleJoinRoom = async () => {
+  const handleJoinRoom = () => {
     // Clear any existing errors first
     setInputError("");
     
@@ -99,18 +102,21 @@ const RoomJoin: React.FC = () => {
     try {
       setIsLoading(true);
       
-      // Set the room ID in context
+      // Set the room ID in context first - this is important!
       setRoomId(trimmedRoomId);
       
-      // Join room - this will now show the board selection dialog
-      joinRoom();
-      
-      toast.success("Room joined successfully!");
+      // Wait a bit to ensure room ID is set before joining room
+      setTimeout(() => {
+        // Join room - this will now show the board selection dialog
+        joinRoom();
+        
+        toast.success("Room joined successfully!");
+        setIsLoading(false);
+      }, 100);
     } catch (error) {
       console.error("Error joining room:", error);
       setInputError("Failed to join room");
       toast.error("Failed to join room. Please try again.");
-    } finally {
       setIsLoading(false);
     }
   };
@@ -274,7 +280,7 @@ const RoomJoin: React.FC = () => {
                   <Button 
                     type="button" 
                     onClick={handleJoinRoom}
-                    disabled={!playerName.trim() || isLoading}
+                    disabled={!playerName.trim() || !localRoomId.trim() || isLoading}
                     className="bg-bingo-border hover:bg-bingo-border/80 text-white whitespace-nowrap"
                   >
                     {isLoading ? (
