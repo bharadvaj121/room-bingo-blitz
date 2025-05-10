@@ -275,7 +275,7 @@ const RoomJoin: React.FC = () => {
         </CardContent>
         <CardFooter className="pt-0 opacity-70 text-xs text-center justify-center">
           <p>
-            Join a multiplayer bingo game with friends!
+            Join a local multiplayer game with friends!
           </p>
         </CardFooter>
       </Card>
