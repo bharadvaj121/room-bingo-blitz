@@ -28,6 +28,8 @@ interface GameContextProps {
   lastClickedPlayer: string | null;
   lastClickedNumber: number | null;
   showBoardSelectionDialog: boolean;
+  offlineMode: boolean;
+  setOfflineMode: (mode: boolean) => void;
   setPlayerName: (name: string) => void;
   setRoomId: (id: string) => void;
   joinRoom: () => void;
@@ -65,6 +67,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [lastClickedNumber, setLastClickedNumber] = useState<number | null>(null);
   const [manualNumbers, setManualNumbers] = useState<number[]>([]);
   const [showBoardSelectionDialog, setShowBoardSelectionDialog] = useState(false);
+  const [offlineMode, setOfflineMode] = useState<boolean>(false);
   
   // Socket.io connection
   const socketRef = useRef<Socket | null>(null);
@@ -75,6 +78,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storedPlayerName = localStorage.getItem("bingoPlayerName");
       if (storedPlayerName) {
         setPlayerName(storedPlayerName);
+      }
+      
+      // Also load offline mode preference
+      const storedOfflineMode = localStorage.getItem("bingoOfflineMode");
+      if (storedOfflineMode) {
+        setOfflineMode(storedOfflineMode === "true");
       }
     } catch (error) {
       console.error("Error loading game state from localStorage:", error);
@@ -88,6 +97,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [playerName]);
 
+  // Store offline mode preference in localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem("bingoOfflineMode", String(offlineMode));
+  }, [offlineMode]);
+
   // Store room ID in localStorage when it changes
   useEffect(() => {
     if (roomId) {
@@ -99,8 +113,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Connect to Socket.io server when roomId changes
   useEffect(() => {
-    // Only connect if we have a roomId and player name
-    if (roomId && playerName && !isManualMode) {
+    // Only connect if we have a roomId and player name and we're not in offline mode
+    if (roomId && playerName && !isManualMode && !offlineMode) {
       if (!socketRef.current) {
         console.log("Connecting to socket server...");
         socketRef.current = io(SERVER_URL);
@@ -113,6 +127,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socketRef.current.on("connect_error", (error) => {
           console.error("Socket connection error:", error);
           toast.error("Failed to connect to game server. Playing in offline mode.");
+          setOfflineMode(true);
         });
         
         socketRef.current.on("playersUpdate", (data) => {
@@ -152,14 +167,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     
-    // Clean up socket connection when leaving room
+    // Clean up socket connection when leaving room or switching to offline mode
     return () => {
-      if (socketRef.current && roomId) {
+      if (socketRef.current && (roomId || offlineMode)) {
         socketRef.current.disconnect();
         socketRef.current = null;
       }
     };
-  }, [roomId, currentPlayer, isManualMode]);
+  }, [roomId, currentPlayer, isManualMode, offlineMode]);
 
   // Handle player name change
   const handlePlayerNameChange = (name: string) => {
@@ -206,7 +221,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log("Room created with player:", player);
     
     // If we have a socketRef, emit join room event
-    if (socketRef.current && !isManual) {
+    if (socketRef.current && !isManual && !offlineMode) {
       socketRef.current.emit("joinRoom", {
         roomId,
         player
@@ -278,8 +293,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     console.log("Joined room with player:", player);
     
-    // If we have a socketRef and we're not in manual mode, emit join room event
-    if (socketRef.current && !isManual) {
+    // If we have a socketRef and we're not in manual mode and not in offline mode, emit join room event
+    if (socketRef.current && !isManual && !offlineMode) {
       socketRef.current.emit("joinRoom", {
         roomId,
         player
@@ -290,7 +305,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Leave the current room
   const leaveRoom = () => {
     // If we have a socket and roomId, emit leave room event
-    if (socketRef.current && roomId && currentPlayer) {
+    if (socketRef.current && roomId && currentPlayer && !offlineMode) {
       socketRef.current.emit("leaveRoom", {
         roomId,
         playerId: currentPlayer.id
@@ -362,8 +377,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     console.log("Cell marked at index:", index, "with number:", updatedPlayer.board[index]);
     
-    // If we have a socket and roomId, emit mark cell event
-    if (socketRef.current && roomId) {
+    // If we have a socket and roomId and we're not in offline mode, emit mark cell event
+    if (socketRef.current && roomId && !offlineMode) {
       socketRef.current.emit("markCell", {
         roomId,
         playerId: updatedPlayer.id,
@@ -401,8 +416,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     console.log("Manual board setup completed");
     
-    // If we have a socket and roomId, emit update player event
-    if (socketRef.current && roomId) {
+    // If we have a socket and roomId and we're not in offline mode, emit update player event
+    if (socketRef.current && roomId && !offlineMode) {
       socketRef.current.emit("joinRoom", {
         roomId,
         player: updatedPlayer
@@ -412,8 +427,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Reset the game
   const resetGame = () => {
-    // If we have a socket and roomId, emit reset game event
-    if (socketRef.current && roomId) {
+    // If we have a socket and roomId and we're not in offline mode, emit reset game event
+    if (socketRef.current && roomId && !offlineMode) {
       socketRef.current.emit("resetGame", {
         roomId
       });
@@ -464,6 +479,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     lastClickedNumber,
     manualNumbers,
     showBoardSelectionDialog,
+    offlineMode,
+    setOfflineMode,
     setPlayerName: handlePlayerNameChange,
     setRoomId: handleRoomIdChange,
     joinRoom,

@@ -13,10 +13,11 @@ A real-time multiplayer Bingo game where users can create rooms and play with fr
 
 ## Setup Instructions
 
-### Option 1: Play in Offline Mode
+### Option 1: Play in Offline Mode (No Server Required)
 
 1. Toggle the "Offline Mode" switch on the home page
 2. Play with simulated multiplayer functionality (all players will be on the same device)
+3. This works for both computer play and multiplayer simulation locally
 
 ### Option 2: Set up the Server for Real Multiplayer
 
@@ -29,13 +30,23 @@ A real-time multiplayer Bingo game where users can create rooms and play with fr
    ```
    node server.js
    ```
+   You should see a message: `Server is running on port 3001`
 4. Start the frontend development server:
    ```
    npm run dev
    ```
 5. Open your browser and navigate to the local development server URL (typically http://localhost:5173)
-6. Share the URL with friends on the same network to play together
-7. Make sure to keep the "Online Mode" toggle enabled
+6. Make sure the "Online Mode" toggle is enabled (default)
+7. Share the URL with friends on the same network to play together
+
+### Troubleshooting Server Connection
+
+If you see the message "Failed to connect to game server. Playing in offline mode":
+
+1. Make sure the server is running with `node server.js`
+2. Check that you are using the correct server URL (http://localhost:3001 by default)
+3. Make sure there's no firewall blocking the connection
+4. If issues persist, toggle to "Offline Mode" to play locally
 
 ### Playing with Friends Online
 

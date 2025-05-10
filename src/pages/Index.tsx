@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { GameProvider, useGame } from "@/contexts/GameContext";
 import RoomJoin from "@/components/RoomJoin";
 import GameRoom from "@/components/GameRoom";
@@ -11,11 +11,33 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
 const Game: React.FC = () => {
-  const { roomId, isManualMode, showBoardSelectionDialog } = useGame();
-  const [offlineMode, setOfflineMode] = useState(false);
+  const { roomId, isManualMode, showBoardSelectionDialog, setOfflineMode, offlineMode } = useGame();
+  const [isServerRunning, setIsServerRunning] = useState<boolean | null>(null);
 
   // Don't show GameRoom while we're in board selection mode for joining a room
   const shouldShowGameRoom = roomId && !showBoardSelectionDialog;
+
+  // Check if the server is running on component mount
+  useEffect(() => {
+    if (!offlineMode) {
+      const checkServer = async () => {
+        try {
+          const response = await fetch("http://localhost:3001/health", { 
+            method: 'HEAD',
+            timeout: 2000
+          });
+          setIsServerRunning(true);
+        } catch (error) {
+          console.error("Server connection error:", error);
+          setIsServerRunning(false);
+          // Auto-switch to offline mode if server isn't running
+          setOfflineMode(true);
+        }
+      };
+      
+      checkServer();
+    }
+  }, [offlineMode, setOfflineMode]);
 
   const toggleOfflineMode = () => {
     setOfflineMode(!offlineMode);
@@ -42,6 +64,15 @@ const Game: React.FC = () => {
               />
             </div>
           </div>
+          
+          {!offlineMode && isServerRunning === false && (
+            <Alert className="w-full max-w-4xl mx-auto mb-4 bg-red-50 border-red-200">
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Server is not running. Please start the server with <code>node server.js</code> or switch to offline mode.
+              </AlertDescription>
+            </Alert>
+          )}
           
           {offlineMode && (
             <Alert className="w-full max-w-4xl mx-auto mb-4 bg-yellow-50 border-yellow-200">

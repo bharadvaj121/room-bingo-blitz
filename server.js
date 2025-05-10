@@ -1,11 +1,36 @@
+
 const { Server } = require("socket.io");
+const http = require("http");
+const url = require("url");
+
+// Create HTTP server for health checks
+const httpServer = http.createServer((req, res) => {
+  const parsedUrl = url.parse(req.url);
+  
+  // Add a health check endpoint
+  if (parsedUrl.pathname === "/health") {
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, HEAD",
+    });
+    res.end(JSON.stringify({ status: "ok" }));
+    return;
+  }
+  
+  // Default response for other routes
+  res.writeHead(404);
+  res.end("Not found");
+});
 
 // Create a Socket.io server
 const io = new Server({
   cors: {
     origin: "*", // In production, restrict this to your domain
     methods: ["GET", "POST"]
-  }
+  },
+  // Attach to the HTTP server
+  server: httpServer
 });
 
 // Store active game rooms
@@ -152,5 +177,6 @@ io.on("connection", (socket) => {
 
 // Start the server
 const PORT = process.env.PORT || 3001;
-io.listen(PORT);
-console.log(`Socket.io server is running on port ${PORT}`);
+httpServer.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
