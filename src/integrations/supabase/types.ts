@@ -9,7 +9,71 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      bingo_players: {
+        Row: {
+          board: Json
+          completed_lines: number | null
+          created_at: string | null
+          id: string
+          marked_cells: Json
+          name: string
+          room_id: string | null
+        }
+        Insert: {
+          board: Json
+          completed_lines?: number | null
+          created_at?: string | null
+          id?: string
+          marked_cells: Json
+          name: string
+          room_id?: string | null
+        }
+        Update: {
+          board?: Json
+          completed_lines?: number | null
+          created_at?: string | null
+          id?: string
+          marked_cells?: Json
+          name?: string
+          room_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bingo_players_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "bingo_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bingo_rooms: {
+        Row: {
+          created_at: string | null
+          game_status: string | null
+          id: string
+          last_called_number: number | null
+          room_code: string
+          winner_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          game_status?: string | null
+          id?: string
+          last_called_number?: number | null
+          room_code: string
+          winner_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          game_status?: string | null
+          id?: string
+          last_called_number?: number | null
+          room_code?: string
+          winner_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
