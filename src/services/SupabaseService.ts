@@ -1,7 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { generateBingoBoard } from "@/lib/bingo";
-import { Player, GameStatus } from "@/types/game";
+import { GameStatus, SupabaseRoomData, SupabasePlayer, SupabaseRoom } from "@/types/game";
 
 // Generate player ID
 const generatePlayerId = () => `player-${Math.random().toString(36).substring(2, 9)}`;
@@ -184,12 +184,12 @@ export class SupabaseService {
         return false;
       }
       
-      // Update the marked cells
-      const updatedMarkedCells = [...playerData.marked_cells];
+      // Update the marked cells - safely cast to array since we know it's an array
+      const updatedMarkedCells = [...(playerData.marked_cells as boolean[])];
       updatedMarkedCells[index] = true;
       
-      // Get the number at this index to broadcast
-      const number = playerData.board[index];
+      // Get the number at this index to broadcast - safely cast to array since we know it's an array
+      const number = (playerData.board as number[])[index];
       
       // Update player's marked cells
       const { error: updateError } = await supabase
@@ -286,7 +286,7 @@ export class SupabaseService {
   }
 
   // Get room data including all players
-  static async getRoomData(roomCode: string): Promise<any | null> {
+  static async getRoomData(roomCode: string): Promise<SupabaseRoomData | null> {
     try {
       // Get room data
       const { data: roomData, error: roomError } = await supabase
@@ -312,14 +312,14 @@ export class SupabaseService {
       }
       
       // Find winner if game is finished
-      let winner = null;
+      let winner: SupabasePlayer | null = null;
       if (roomData[0].game_status === 'finished' && roomData[0].winner_id) {
-        winner = players.find(p => p.id === roomData[0].winner_id) || null;
+        winner = (players || []).find(p => p.id === roomData[0].winner_id) || null;
       }
       
       return {
-        room: roomData[0],
-        players: players || [],
+        room: roomData[0] as SupabaseRoom,
+        players: (players || []) as SupabasePlayer[],
         winner
       };
     } catch (error) {
@@ -364,22 +364,25 @@ export class SupabaseService {
             async (payload) => {
               console.log("Room update:", payload);
               
+              const newData = payload.new as Record<string, any>;
+              const oldData = payload.old as Partial<Record<string, any>> || {};
+
               // Get full room data including all players
               const roomData = await this.getRoomData(roomCode);
               if (roomData) {
                 callbacks.onRoomUpdate(roomData);
                 
                 // Check for game won
-                if (payload.new.game_status === 'finished' && payload.new.winner_id) {
+                if (newData.game_status === 'finished' && newData.winner_id) {
                   callbacks.onGameWon({
                     winner: roomData.winner
                   });
                 }
                 
                 // Check for number called
-                if (payload.new.last_called_number !== payload.old?.last_called_number) {
+                if (newData.last_called_number !== oldData.last_called_number) {
                   callbacks.onNumberCalled({
-                    number: payload.new.last_called_number
+                    number: newData.last_called_number
                   });
                 }
               }
@@ -400,9 +403,10 @@ export class SupabaseService {
             },
             (payload) => {
               console.log("Player joined:", payload);
+              const newData = payload.new as Record<string, any>;
               callbacks.onPlayerJoined({
-                playerName: payload.new.name,
-                playerId: payload.new.id
+                playerName: newData.name,
+                playerId: newData.id
               });
             }
           )
@@ -416,9 +420,10 @@ export class SupabaseService {
             },
             (payload) => {
               console.log("Player left:", payload);
+              const oldData = payload.old as Record<string, any>;
               callbacks.onPlayerLeft({
-                playerName: payload.old.name,
-                playerId: payload.old.id
+                playerName: oldData.name,
+                playerId: oldData.id
               });
             }
           )
@@ -434,11 +439,14 @@ export class SupabaseService {
               // Handle player updates (e.g., marked cells)
               console.log("Player updated:", payload);
               
+              const newData = payload.new as Record<string, any>;
+              const oldData = payload.old as Record<string, any>;
+
               // When a player marks a cell, notify others
-              if (payload.new.marked_cells !== payload.old.marked_cells) {
+              if (JSON.stringify(newData.marked_cells) !== JSON.stringify(oldData.marked_cells)) {
                 // Get the number called from the difference between old and new marked cells
-                const oldCells = payload.old.marked_cells;
-                const newCells = payload.new.marked_cells;
+                const oldCells = oldData.marked_cells as boolean[];
+                const newCells = newData.marked_cells as boolean[];
                 let index = -1;
                 
                 for (let i = 0; i < newCells.length; i++) {
@@ -449,10 +457,11 @@ export class SupabaseService {
                 }
                 
                 if (index >= 0) {
-                  const number = payload.new.board[index];
+                  const board = newData.board as number[];
+                  const number = board[index];
                   callbacks.onNumberCalled({
                     number: number,
-                    playerName: payload.new.name
+                    playerName: newData.name
                   });
                 }
               }
@@ -474,26 +483,4 @@ export class SupabaseService {
         return null;
       });
   }
-}
-
-// Add types for the game
-export interface SupabaseRoomData {
-  room: {
-    id: string;
-    room_code: string;
-    game_status: string;
-    winner_id: string | null;
-    last_called_number: number | null;
-  };
-  players: SupabasePlayer[];
-  winner: SupabasePlayer | null;
-}
-
-export interface SupabasePlayer {
-  id: string;
-  name: string;
-  room_id: string;
-  board: number[];
-  marked_cells: boolean[];
-  completed_lines: number;
 }

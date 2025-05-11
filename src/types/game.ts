@@ -41,3 +41,29 @@ export interface GameContextProps {
   addManualNumber: (num: number) => void;
   checkServerStatus: () => Promise<boolean>;
 }
+
+// Supabase specific types
+export interface SupabaseRoom {
+  id: string;
+  room_code: string;
+  game_status: string | null;
+  winner_id: string | null;
+  last_called_number: number | null;
+  created_at?: string | null;
+}
+
+export interface SupabasePlayer {
+  id: string;
+  name: string;
+  room_id: string;
+  board: number[];
+  marked_cells: boolean[];
+  completed_lines: number;
+  created_at?: string | null;
+}
+
+export interface SupabaseRoomData {
+  room: SupabaseRoom;
+  players: SupabasePlayer[];
+  winner: SupabasePlayer | null;
+}
