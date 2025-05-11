@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { generateBingoBoard } from "@/lib/bingo";
 import { GameStatus, SupabaseRoomData, SupabasePlayer, SupabaseRoom } from "@/types/game";
+import { RealtimeChannel } from "@supabase/supabase-js";
 
 // Generate player ID
 const generatePlayerId = () => `player-${Math.random().toString(36).substring(2, 9)}`;
@@ -46,8 +47,8 @@ export class SupabaseService {
         return null;
       }
       
-      // Generate player ID
-      const playerId = generatePlayerId();
+      // Generate player ID - use UUID format for database compatibility
+      const playerId = crypto.randomUUID();
       
       // Create player entry
       const { data: playerData, error: playerError } = await supabase
@@ -127,8 +128,8 @@ export class SupabaseService {
         return null;
       }
       
-      // Generate player ID
-      const playerId = generatePlayerId();
+      // Generate player ID - use UUID format for database compatibility
+      const playerId = crypto.randomUUID();
       
       // Create player entry
       await supabase
@@ -185,17 +186,21 @@ export class SupabaseService {
       }
       
       // Update the marked cells - safely cast to array since we know it's an array
-      const updatedMarkedCells = [...(playerData.marked_cells as boolean[])];
-      updatedMarkedCells[index] = true;
+      const markedCells = Array.isArray(playerData.marked_cells) 
+        ? [...playerData.marked_cells] 
+        : Array(25).fill(false);
       
-      // Get the number at this index to broadcast - safely cast to array since we know it's an array
-      const number = (playerData.board as number[])[index];
+      markedCells[index] = true;
+      
+      // Get the number at this index - safely cast to array since we know it's an array
+      const board = Array.isArray(playerData.board) ? playerData.board : [];
+      const number = board[index];
       
       // Update player's marked cells
       const { error: updateError } = await supabase
         .from('bingo_players')
         .update({ 
-          marked_cells: updatedMarkedCells,
+          marked_cells: markedCells,
           completed_lines: completedLines
         })
         .eq('id', playerId);
@@ -301,7 +306,7 @@ export class SupabaseService {
       }
       
       // Get all players in the room
-      const { data: players, error: playersError } = await supabase
+      const { data: playersData, error: playersError } = await supabase
         .from('bingo_players')
         .select('*')
         .eq('room_id', roomData[0].id);
@@ -311,15 +316,32 @@ export class SupabaseService {
         return null;
       }
       
+      const players: SupabasePlayer[] = (playersData || []).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        room_id: p.room_id,
+        board: Array.isArray(p.board) ? p.board : [],
+        marked_cells: Array.isArray(p.marked_cells) ? p.marked_cells : Array(25).fill(false),
+        completed_lines: p.completed_lines || 0,
+        created_at: p.created_at
+      }));
+      
       // Find winner if game is finished
       let winner: SupabasePlayer | null = null;
       if (roomData[0].game_status === 'finished' && roomData[0].winner_id) {
-        winner = (players || []).find(p => p.id === roomData[0].winner_id) || null;
+        winner = players.find(p => p.id === roomData[0].winner_id) || null;
       }
       
       return {
-        room: roomData[0] as SupabaseRoom,
-        players: (players || []) as SupabasePlayer[],
+        room: {
+          id: roomData[0].id,
+          room_code: roomData[0].room_code,
+          game_status: roomData[0].game_status || null,
+          winner_id: roomData[0].winner_id || null,
+          last_called_number: roomData[0].last_called_number || null,
+          created_at: roomData[0].created_at || null
+        },
+        players,
         winner
       };
     } catch (error) {
@@ -373,14 +395,14 @@ export class SupabaseService {
                 callbacks.onRoomUpdate(roomData);
                 
                 // Check for game won
-                if (newData.game_status === 'finished' && newData.winner_id) {
+                if (newData && newData.game_status === 'finished' && newData.winner_id) {
                   callbacks.onGameWon({
                     winner: roomData.winner
                   });
                 }
                 
                 // Check for number called
-                if (newData.last_called_number !== oldData.last_called_number) {
+                if (newData && oldData && newData.last_called_number !== oldData.last_called_number) {
                   callbacks.onNumberCalled({
                     number: newData.last_called_number
                   });
@@ -443,10 +465,11 @@ export class SupabaseService {
               const oldData = payload.old as Record<string, any>;
 
               // When a player marks a cell, notify others
-              if (JSON.stringify(newData.marked_cells) !== JSON.stringify(oldData.marked_cells)) {
+              if (newData && oldData && 
+                  JSON.stringify(newData.marked_cells) !== JSON.stringify(oldData.marked_cells)) {
                 // Get the number called from the difference between old and new marked cells
-                const oldCells = oldData.marked_cells as boolean[];
-                const newCells = newData.marked_cells as boolean[];
+                const oldCells = Array.isArray(oldData.marked_cells) ? oldData.marked_cells : [];
+                const newCells = Array.isArray(newData.marked_cells) ? newData.marked_cells : [];
                 let index = -1;
                 
                 for (let i = 0; i < newCells.length; i++) {
@@ -457,7 +480,7 @@ export class SupabaseService {
                 }
                 
                 if (index >= 0) {
-                  const board = newData.board as number[];
+                  const board = Array.isArray(newData.board) ? newData.board : [];
                   const number = board[index];
                   callbacks.onNumberCalled({
                     number: number,
@@ -477,6 +500,10 @@ export class SupabaseService {
             supabase.removeChannel(playersChannel);
           }
         };
+      })
+      .then(result => {
+        // Adding proper promise handling
+        return result;
       })
       .catch(error => {
         console.error("Error setting up room listeners:", error);

@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
 import { toast } from "sonner";
-import { SupabaseService, SupabaseRoomData } from "@/services/SupabaseService";
-import { Player, GameStatus, ServerStatus, GameContextProps } from "@/types/game";
+import { SupabaseService } from "@/services/SupabaseService";
+import { Player, GameStatus, ServerStatus, GameContextProps, SupabaseRoomData } from "@/types/game";
 
 // Create context
 const GameContext = createContext<GameContextProps | undefined>(undefined);
