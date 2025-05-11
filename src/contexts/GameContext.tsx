@@ -1,85 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
 import { toast } from "sonner";
-import { io, Socket } from "socket.io-client";
-
-// Socket.io client instance
-let socket: Socket | null = null;
-const SERVER_URL = "http://localhost:3002"; // Default server URL
-
-// Player type definition
-type Player = {
-  id: string;
-  name: string;
-  board: number[];
-  markedCells: boolean[];
-  completedLines: number;
-};
-
-// Game status type
-type GameStatus = "playing" | "finished";
-
-// Server status type
-type ServerStatus = "checking" | "online" | "offline";
-
-// Game context type
-interface GameContextProps {
-  playerName: string;
-  roomId: string | null;
-  players: Player[];
-  currentPlayer: Player | null;
-  gameStatus: GameStatus;
-  winner: Player | null;
-  isManualMode: boolean;
-  lastClickedPlayer: string | null;
-  lastClickedNumber: number | null;
-  showBoardSelectionDialog: boolean;
-  serverStatus: ServerStatus;
-  setPlayerName: (name: string) => void;
-  setRoomId: (id: string) => void;
-  joinRoom: () => void;
-  completeJoinRoom: (isManual: boolean) => void;
-  leaveRoom: () => void;
-  createRoom: (isManual: boolean) => void;
-  markCell: (index: number) => void;
-  finishManualSetup: (boardNumbers: number[]) => void;
-  resetGame: () => void;
-  setCalledNumber: (number: number) => void;
-  manualNumbers: number[];
-  addManualNumber: (num: number) => void;
-  checkServerStatus: () => Promise<boolean>;
-}
+import { SupabaseService, SupabaseRoomData } from "@/services/SupabaseService";
+import { Player, GameStatus, ServerStatus, GameContextProps } from "@/types/game";
 
 // Create context
 const GameContext = createContext<GameContextProps | undefined>(undefined);
 
-// Initialize Socket.io connection with better error handling
-const initializeSocket = (): Socket => {
-  if (!socket) {
-    try {
-      socket = io(SERVER_URL, {
-        transports: ['websocket'],
-        reconnectionAttempts: 3,
-        timeout: 10000 // Increased timeout
-      });
-
-      console.log("Socket initialization attempt");
-
-      socket.on("connect", () => {
-        console.log("Connected to server:", socket?.id);
-      });
-
-      socket.on("connect_error", (err) => {
-        console.error("Connection error:", err.message);
-      });
-    } catch (error) {
-      console.error("Socket initialization failed:", error);
-    }
-  }
-  return socket as Socket;
-};
-
-// Generate player ID
+// Generate player ID (used for local play only)
 const generatePlayerId = () => `player-${Math.random().toString(36).substring(2, 9)}`;
 
 // Provider component
@@ -87,6 +15,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // State
   const [playerName, setPlayerName] = useState<string>("");
   const [roomId, setRoomId] = useState<string | null>(null);
+  const [roomDbId, setRoomDbId] = useState<string | null>(null); // Database ID of the room
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
   const [gameStatus, setGameStatus] = useState<GameStatus>("playing");
@@ -97,101 +26,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [manualNumbers, setManualNumbers] = useState<number[]>([]);
   const [showBoardSelectionDialog, setShowBoardSelectionDialog] = useState(false);
   const [serverStatus, setServerStatus] = useState<ServerStatus>("checking");
-  
-  // Initialize socket connection when component mounts
-  useEffect(() => {
-    // Try to initialize socket
-    try {
-      const socketInstance = initializeSocket();
-      
-      // Set up event listeners
-      socketInstance.on("room_update", (roomData) => {
-        console.log("Room update received:", roomData);
-        
-        if (roomData.roomId === roomId) {
-          // Update players list
-          setPlayers(roomData.players);
-          
-          // Update game status
-          setGameStatus(roomData.gameStatus);
-          
-          // Update winner if there is one
-          if (roomData.winner) {
-            setWinner(roomData.winner);
-          }
-          
-          // Update last called number if there is one
-          if (roomData.lastCalledNumber) {
-            setLastClickedNumber(roomData.lastCalledNumber);
-          }
-        }
-      });
-      
-      socketInstance.on("join_success", (player) => {
-        console.log("Join success:", player);
-        setCurrentPlayer(player);
-        setShowBoardSelectionDialog(false); // Ensure dialog is closed on successful join
-      });
-      
-      socketInstance.on("player_joined", (data) => {
-        console.log("Player joined:", data);
-        toast.info(`${data.playerName} joined the game`);
-      });
-      
-      socketInstance.on("player_left", (data) => {
-        console.log("Player left:", data);
-        toast.info(`${data.playerName} left the game`);
-      });
-      
-      socketInstance.on("number_called", (data) => {
-        console.log("Number called:", data);
-        setLastClickedNumber(data.number);
-        toast.info(`Number called: ${data.number}`);
-      });
-      
-      socketInstance.on("number_marked", (data) => {
-        console.log("Number marked:", data);
-        setLastClickedPlayer(data.playerName);
-        // We don't update the markedCells here as that's handled by the room_update event
-      });
-      
-      socketInstance.on("game_won", (data) => {
-        console.log("Game won:", data);
-        setGameStatus("finished");
-        setWinner(data.winner);
-        toast.success(`${data.winner.name} wins with BINGO!`);
-      });
-      
-      socketInstance.on("game_reset", () => {
-        console.log("Game reset");
-        setGameStatus("playing");
-        setWinner(null);
-      });
-      
-      socketInstance.on("room_full", () => {
-        toast.error("The room is full (max 5 players)");
-      });
-      
-      socketInstance.on("name_taken", () => {
-        toast.error("This name is already taken in the room");
-      });
-      
-      // Check server status right away
-      checkServerStatus();
-    } catch (error) {
-      console.error("Socket initialization error:", error);
-      setServerStatus("offline");
-    }
-    
-    // Clean up on unmount
-    return () => {
-      if (socket) {
-        console.log("Disconnecting socket");
-        socket.disconnect();
-        socket = null; // Reset socket so it can be reinitialized
-      }
-    };
-  }, []);
+  const [subscriptions, setSubscriptions] = useState<any>(null);
+  const [playerId, setPlayerId] = useState<string | null>(null); // Current player's ID
   
   // Load game state from localStorage on component mount
   useEffect(() => {
@@ -200,6 +36,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (storedPlayerName) {
         setPlayerName(storedPlayerName);
       }
+      
+      checkServerStatus();
     } catch (error) {
       console.error("Error loading game state from localStorage:", error);
     }
@@ -212,79 +50,130 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [playerName]);
 
-  // Check server status function with better handling
-  const checkServerStatus = useCallback((): Promise<boolean> => {
-    return new Promise((resolve) => {
-      setServerStatus("checking");
+  // Set up listeners for a room on roomId change
+  useEffect(() => {
+    // Clean up previous subscriptions
+    if (subscriptions) {
+      subscriptions.unsubscribe();
+      setSubscriptions(null);
+    }
+    
+    // If no room ID or server is offline, don't set up listeners
+    if (!roomId || serverStatus === "offline") {
+      return;
+    }
+    
+    // Set up listeners for the room
+    const setupListeners = async () => {
+      const listeners = await SupabaseService.setupRoomListeners(roomId, {
+        onRoomUpdate: handleRoomUpdate,
+        onPlayerJoined: handlePlayerJoined,
+        onPlayerLeft: handlePlayerLeft,
+        onNumberCalled: handleNumberCalled,
+        onGameWon: handleGameWon
+      });
       
-      try {
-        const socketInstance = initializeSocket();
-        
-        // Set a timeout for the server check
-        const timeoutId = setTimeout(() => {
-          console.log("Server check timed out");
-          setServerStatus("offline");
-          resolve(false);
-        }, 5000);
-        
-        // Emit check_server event
-        if (socketInstance.connected) {
-          socketInstance.emit("check_server");
-          console.log("Emitted check_server event");
-        } else {
-          console.log("Socket not connected yet, waiting for connection");
-          
-          // Add one-time connect handler for initial connection
-          socketInstance.once("connect", () => {
-            socketInstance.emit("check_server");
-            console.log("Connected and emitted check_server event");
-          });
-        }
-        
-        // Listen for server_status event
-        socketInstance.once("server_status", (data) => {
-          clearTimeout(timeoutId);
-          const isOnline = data.status === "online";
-          console.log("Server status received:", data.status);
-          setServerStatus(isOnline ? "online" : "offline");
-          resolve(isOnline);
-        });
-        
-        // Also handle connect event
-        const onConnect = () => {
-          clearTimeout(timeoutId);
-          console.log("Connected to server during status check");
-          setServerStatus("online");
-          resolve(true);
-        };
-        
-        const onConnectError = (err: Error) => {
-          console.error("Connection error during status check:", err.message);
-          // Don't resolve here, let the timeout handle it
-        };
-        
-        // If socket is already connected, consider it online
-        if (socketInstance.connected) {
-          clearTimeout(timeoutId);
-          setServerStatus("online");
-          resolve(true);
-        }
-        
-        // Set up listeners
-        socketInstance.once("connect", onConnect);
-        socketInstance.once("connect_error", onConnectError);
-        
-        // Clean up listeners after check is complete
-        setTimeout(() => {
-          socketInstance.off("connect", onConnect);
-          socketInstance.off("connect_error", onConnectError);
-        }, 6000);
-      } catch (error) {
-        console.error("Error checking server status:", error);
-        setServerStatus("offline");
-        resolve(false);
+      if (listeners) {
+        setSubscriptions(listeners);
       }
-    });
+    };
+    
+    setupListeners();
+    
+    return () => {
+      if (subscriptions) {
+        subscriptions.unsubscribe();
+      }
+    };
+  }, [roomId, serverStatus]);
+
+  // Handlers for real-time events
+  const handleRoomUpdate = (data: SupabaseRoomData) => {
+    console.log("Room update received:", data);
+    
+    if (data.room.room_code === roomId) {
+      // Convert Supabase players to our Player format
+      const updatedPlayers: Player[] = data.players.map(p => ({
+        id: p.id,
+        name: p.name,
+        board: p.board as number[],
+        markedCells: p.marked_cells as boolean[],
+        completedLines: p.completed_lines
+      }));
+      
+      // Update players list
+      setPlayers(updatedPlayers);
+      
+      // Update current player
+      if (playerId) {
+        const player = updatedPlayers.find(p => p.id === playerId);
+        if (player) {
+          setCurrentPlayer(player);
+        }
+      }
+      
+      // Update game status
+      setGameStatus(data.room.game_status as GameStatus);
+      setRoomDbId(data.room.id);
+      
+      // Update winner if there is one
+      if (data.winner) {
+        const winnerPlayer: Player = {
+          id: data.winner.id,
+          name: data.winner.name,
+          board: data.winner.board as number[],
+          markedCells: data.winner.marked_cells as boolean[],
+          completedLines: data.winner.completed_lines
+        };
+        setWinner(winnerPlayer);
+      }
+      
+      // Update last called number if there is one
+      if (data.room.last_called_number) {
+        setLastClickedNumber(data.room.last_called_number);
+      }
+    }
+  };
+  
+  const handlePlayerJoined = (data: any) => {
+    console.log("Player joined:", data);
+    toast.info(`${data.playerName} joined the game`);
+  };
+  
+  const handlePlayerLeft = (data: any) => {
+    console.log("Player left:", data);
+    toast.info(`${data.playerName} left the game`);
+  };
+  
+  const handleNumberCalled = (data: any) => {
+    console.log("Number called:", data);
+    setLastClickedNumber(data.number);
+    if (data.playerName) {
+      setLastClickedPlayer(data.playerName);
+    }
+    toast.info(`Number called: ${data.number}`);
+  };
+  
+  const handleGameWon = (data: any) => {
+    console.log("Game won:", data);
+    if (data.winner) {
+      toast.success(`${data.winner.name} wins with BINGO!`);
+    }
+  };
+
+  // Check server status function with better handling
+  const checkServerStatus = useCallback(async (): Promise<boolean> => {
+    setServerStatus("checking");
+    
+    try {
+      const isOnline = await SupabaseService.checkConnection();
+      setServerStatus(isOnline ? "online" : "offline");
+      return isOnline;
+    } catch (error) {
+      console.error("Error checking server status:", error);
+      setServerStatus("offline");
+      return false;
+    }
   }, []);
 
   // Handle player name change
@@ -299,16 +188,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Create a new room
-  const createRoom = (isManual: boolean = false) => {
+  const createRoom = async (isManual: boolean = false) => {
     console.log("Creating room with manual mode:", isManual);
     
     if (!playerName || playerName.trim() === "") {
       toast.error("Please enter your name");
       return;
     }
-    
-    // Generate a board based on manual mode
-    const playerBoard = isManual ? Array(25).fill(0) : generateBingoBoard();
     
     // Set manual mode state
     setIsManualMode(isManual);
@@ -317,43 +203,69 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setManualNumbers([]);
     
     // Check server status before proceeding
-    checkServerStatus().then(isOnline => {
-      if (isOnline && socket) {
-        // Reset any existing game state
+    const isOnline = await checkServerStatus();
+    
+    if (isOnline) {
+      try {
+        // Reset any existing game state first
         setPlayers([]);
         setCurrentPlayer(null);
-        setGameStatus("playing");
+        setGameStatus("waiting");
         setWinner(null);
         
-        console.log("Creating room on server");
+        const result = await SupabaseService.createRoom(playerName, isManual);
         
-        // Since this is create, we'll emit join_room with the new room ID
-        if (roomId) {
-          socket.emit("join_room", {
-            roomId,
-            playerName,
-            board: playerBoard
-          });
-        } else {
-          console.error("Room ID is null when trying to create room");
-          toast.error("Failed to create room: missing room ID");
+        if (result) {
+          // Set room ID and player ID
+          setRoomId(result.roomId);
+          setPlayerId(result.playerId);
           
-          // Fallback to offline mode
-          createOfflineRoom(playerBoard);
+          // Get initial room data
+          const roomData = await SupabaseService.getRoomData(result.roomId);
+          
+          if (roomData) {
+            // Convert Supabase players to our Player format
+            const initialPlayers: Player[] = roomData.players.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              board: p.board as number[],
+              markedCells: p.marked_cells as boolean[],
+              completedLines: p.completed_lines
+            }));
+            
+            // Set players and current player
+            setPlayers(initialPlayers);
+            const player = initialPlayers.find(p => p.id === result.playerId);
+            if (player) {
+              setCurrentPlayer(player);
+            }
+            
+            // Set room database ID
+            setRoomDbId(roomData.room.id);
+            
+            toast.success("Room created successfully!");
+          }
+        } else {
+          toast.error("Failed to create room. Please try again.");
+          createOfflineRoom(isManual ? Array(25).fill(0) : generateBingoBoard());
         }
-      } else {
-        console.log("Server offline, creating offline room");
-        createOfflineRoom(playerBoard);
+      } catch (error) {
+        console.error("Error creating room:", error);
+        toast.error("Failed to create room. Falling back to offline mode.");
+        createOfflineRoom(isManual ? Array(25).fill(0) : generateBingoBoard());
       }
-    });
+    } else {
+      console.log("Server offline, creating offline room");
+      createOfflineRoom(isManual ? Array(25).fill(0) : generateBingoBoard());
+    }
   };
   
   // Helper for creating offline rooms
   const createOfflineRoom = (playerBoard: number[]) => {
     // In offline mode, create a player object for the current player
-    const playerId = generatePlayerId();
+    const localPlayerId = generatePlayerId();
     const player: Player = {
-      id: playerId,
+      id: localPlayerId,
       name: playerName,
       board: playerBoard,
       markedCells: Array(25).fill(false),
@@ -365,6 +277,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentPlayer(player);
     setGameStatus("playing");
     setWinner(null);
+    setPlayerId(localPlayerId);
     
     console.log("Room created offline with player:", player);
   };
@@ -398,39 +311,79 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   // Complete join process with board selection
-  const completeJoinRoom = (isManual: boolean) => {
+  const completeJoinRoom = async (isManual: boolean) => {
     // Generate a board based on manual mode
     const playerBoard = isManual ? Array(25).fill(0) : generateBingoBoard();
     
     // Set manual mode state
     setIsManualMode(isManual);
     
+    if (!roomId) {
+      toast.error("Room ID not set");
+      return;
+    }
+    
     // Check server status before proceeding
-    checkServerStatus().then(isOnline => {
-      if (isOnline && socket && roomId) {
-        // In online mode, send a join_room event to the server
-        console.log("Joining online room:", roomId);
-        socket.emit("join_room", {
-          roomId,
-          playerName,
-          board: playerBoard
-        });
-      } else {
-        console.log("Server offline, joining offline room");
+    const isOnline = await checkServerStatus();
+    
+    if (isOnline) {
+      try {
+        const result = await SupabaseService.joinRoom(roomId, playerName, playerBoard);
+        
+        if (result) {
+          // Set player ID
+          setPlayerId(result.playerId);
+          setRoomDbId(result.roomDbId);
+          
+          // Get room data
+          const roomData = await SupabaseService.getRoomData(roomId);
+          
+          if (roomData) {
+            // Convert Supabase players to our Player format
+            const initialPlayers: Player[] = roomData.players.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              board: p.board as number[],
+              markedCells: p.marked_cells as boolean[],
+              completedLines: p.completed_lines
+            }));
+            
+            // Set players and current player
+            setPlayers(initialPlayers);
+            const player = initialPlayers.find(p => p.id === result.playerId);
+            if (player) {
+              setCurrentPlayer(player);
+            }
+            
+            // Set game status
+            setGameStatus(roomData.room.game_status as GameStatus);
+            
+            toast.success("Joined room successfully!");
+          }
+        } else {
+          toast.error("Failed to join room. Room may not exist or be full.");
+          joinOfflineRoom(playerBoard);
+        }
+      } catch (error) {
+        console.error("Error joining room:", error);
+        toast.error("Failed to join room. Falling back to offline mode.");
         joinOfflineRoom(playerBoard);
       }
-      
-      // Close the dialog regardless of online/offline mode
-      setShowBoardSelectionDialog(false);
-    });
+    } else {
+      console.log("Server offline, joining offline room");
+      joinOfflineRoom(playerBoard);
+    }
+    
+    // Close the dialog regardless of online/offline mode
+    setShowBoardSelectionDialog(false);
   };
   
   // Helper for joining offline rooms
   const joinOfflineRoom = (playerBoard: number[]) => {
     // In offline mode, create a player object for the current player
-    const playerId = generatePlayerId();
+    const localPlayerId = generatePlayerId();
     const player: Player = {
-      id: playerId,
+      id: localPlayerId,
       name: playerName,
       board: playerBoard,
       markedCells: Array(25).fill(false),
@@ -452,20 +405,30 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     
     setCurrentPlayer(player);
+    setPlayerId(localPlayerId);
   };
   
   // Leave the current room
-  const leaveRoom = () => {
+  const leaveRoom = async () => {
     // Check if we're online and have necessary data
-    if (serverStatus === "online" && socket && roomId && currentPlayer) {
-      socket.emit("leave_room", {
-        roomId,
-        playerId: currentPlayer.id
-      });
+    if (serverStatus === "online" && playerId) {
+      try {
+        await SupabaseService.leaveRoom(playerId);
+      } catch (error) {
+        console.error("Error leaving room:", error);
+      }
+    }
+    
+    // Clean up subscriptions
+    if (subscriptions) {
+      subscriptions.unsubscribe();
+      setSubscriptions(null);
     }
     
     // Reset all state
     setRoomId(null);
+    setRoomDbId(null);
+    setPlayerId(null);
     setPlayers([]);
     setCurrentPlayer(null);
     setGameStatus("playing");
@@ -475,14 +438,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLastClickedNumber(null);
     setShowBoardSelectionDialog(false);
     
-    // Remove room ID from localStorage
-    localStorage.removeItem("bingoRoomId");
-    
     console.log("Left room");
   };
   
   // Mark a cell on the current player's board
-  const markCell = (index: number) => {
+  const markCell = async (index: number) => {
     if (!currentPlayer || gameStatus !== "playing") {
       console.log("Cannot mark cell: no current player or game not in playing state");
       return;
@@ -497,101 +457,109 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Get the number at this cell
     const number = currentPlayer.board[index];
     
-    if (serverStatus === "online" && socket && roomId) {
-      // In online mode, send a mark_number event to the server
-      // First check how many lines are completed
-      const updatedMarkedCells = [...currentPlayer.markedCells];
-      updatedMarkedCells[index] = true;
-      const completedLines = checkWin(updatedMarkedCells);
-      
-      socket.emit("mark_number", {
-        roomId,
-        playerId: currentPlayer.id,
-        index,
-        number,
-        completedLines
-      });
-      
-      // The server will handle the rest and send updates
+    if (serverStatus === "online" && playerId && roomDbId) {
+      try {
+        // Create a copy of the current player's marked cells and update it
+        const updatedMarkedCells = [...currentPlayer.markedCells];
+        updatedMarkedCells[index] = true;
+        
+        // Check for win
+        const completedLines = checkWin(updatedMarkedCells);
+        
+        // Update the server
+        await SupabaseService.markNumber(playerId, index, completedLines);
+        
+        // Check if the player has won (5 or more completed lines)
+        if (completedLines >= 5) {
+          await SupabaseService.endGame(playerId, roomDbId);
+        }
+      } catch (error) {
+        console.error("Error marking cell:", error);
+        
+        // Fall back to offline mode
+        markCellOffline(index);
+      }
     } else {
       // In offline mode, handle everything locally
-      
-      // Create a copy of the current player
-      const updatedPlayer = { ...currentPlayer };
-      
-      // Mark the cell
-      updatedPlayer.markedCells = [...updatedPlayer.markedCells];
-      updatedPlayer.markedCells[index] = true;
-      
-      // Set the last clicked player and number
-      setLastClickedPlayer(updatedPlayer.name);
-      setLastClickedNumber(updatedPlayer.board[index]);
-      
-      // Check for win
-      const completedLines = checkWin(updatedPlayer.markedCells);
-      updatedPlayer.completedLines = completedLines;
-      
-      // Check if the player has won (5 or more completed lines)
-      if (completedLines >= 5) {
-        setGameStatus("finished");
-        setWinner(updatedPlayer);
-        toast.success(`${updatedPlayer.name} wins with BINGO!`);
-      }
-      
-      // Update the current player
-      setCurrentPlayer(updatedPlayer);
-      
-      // Update the player in the players array
-      setPlayers(prevPlayers => {
-        return prevPlayers.map(player => {
-          if (player.id === updatedPlayer.id) {
-            return updatedPlayer;
-          }
-          return player;
-        });
-      });
-      
-      // Simulate broadcasting to other players in local multiplayer
-      toast.info(`${updatedPlayer.name} called: ${updatedPlayer.board[index]}`);
+      markCellOffline(index);
     }
   };
   
+  // Helper for marking cells in offline mode
+  const markCellOffline = (index: number) => {
+    if (!currentPlayer) return;
+    
+    // Create a copy of the current player
+    const updatedPlayer = { ...currentPlayer };
+    
+    // Mark the cell
+    updatedPlayer.markedCells = [...updatedPlayer.markedCells];
+    updatedPlayer.markedCells[index] = true;
+    
+    // Set the last clicked player and number
+    setLastClickedPlayer(updatedPlayer.name);
+    setLastClickedNumber(updatedPlayer.board[index]);
+    
+    // Check for win
+    const completedLines = checkWin(updatedPlayer.markedCells);
+    updatedPlayer.completedLines = completedLines;
+    
+    // Check if the player has won (5 or more completed lines)
+    if (completedLines >= 5) {
+      setGameStatus("finished");
+      setWinner(updatedPlayer);
+      toast.success(`${updatedPlayer.name} wins with BINGO!`);
+    }
+    
+    // Update the current player
+    setCurrentPlayer(updatedPlayer);
+    
+    // Update the player in the players array
+    setPlayers(prevPlayers => {
+      return prevPlayers.map(player => {
+        if (player.id === updatedPlayer.id) {
+          return updatedPlayer;
+        }
+        return player;
+      });
+    });
+    
+    // Simulate broadcasting to other players in local multiplayer
+    toast.info(`${updatedPlayer.name} called: ${updatedPlayer.board[index]}`);
+  };
+  
   // Finish manual board setup
-  const finishManualSetup = (boardNumbers: number[]) => {
+  const finishManualSetup = async (boardNumbers: number[]) => {
     if (!isManualMode) {
       console.log("Cannot finish manual setup: not in manual mode");
       return;
     }
     
-    if (serverStatus === "online" && socket && roomId) {
-      // In online mode, join room with the manual board
-      socket.emit("join_room", {
-        roomId,
-        playerName,
-        board: boardNumbers
-      });
+    if (serverStatus === "online" && roomId) {
+      try {
+        // Complete the join process with the manual board
+        await completeJoinRoom(false); // Pass false because we're manually handling the board
+        
+        // Get the current player
+        const player = players.find(p => p.id === playerId);
+        if (!player) {
+          console.log("Cannot finish manual setup: no current player found");
+          return;
+        }
+        
+        // Update the player's board directly (not implemented in SupabaseService yet)
+        // This would require a new method in SupabaseService to update a player's board
+        
+        // For now, fallback to offline mode
+        finishManualSetupOffline(boardNumbers);
+      } catch (error) {
+        console.error("Error finishing manual setup:", error);
+        // Fall back to offline mode
+        finishManualSetupOffline(boardNumbers);
+      }
     } else {
       // In offline mode, update the player's board
-      if (!currentPlayer) {
-        console.log("Cannot finish manual setup: no current player");
-        return;
-      }
-      
-      // Create a copy of the current player
-      const updatedPlayer = { ...currentPlayer, board: boardNumbers };
-      
-      // Update the current player
-      setCurrentPlayer(updatedPlayer);
-      
-      // Update the player in the players array
-      setPlayers(prevPlayers => {
-        return prevPlayers.map(player => {
-          if (player.id === updatedPlayer.id) {
-            return updatedPlayer;
-          }
-          return player;
-        });
-      });
+      finishManualSetupOffline(boardNumbers);
     }
     
     // Exit manual mode
@@ -600,22 +568,53 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log("Manual board setup completed");
   };
   
-  // Reset the game
-  const resetGame = () => {
-    if (serverStatus === "online" && socket && roomId) {
-      // In online mode, send a reset_game event to the server
-      socket.emit("reset_game", {
-        roomId
+  // Helper for finishing manual setup in offline mode
+  const finishManualSetupOffline = (boardNumbers: number[]) => {
+    if (!currentPlayer) {
+      console.log("Cannot finish manual setup: no current player");
+      return;
+    }
+    
+    // Create a copy of the current player
+    const updatedPlayer = { ...currentPlayer, board: boardNumbers };
+    
+    // Update the current player
+    setCurrentPlayer(updatedPlayer);
+    
+    // Update the player in the players array
+    setPlayers(prevPlayers => {
+      return prevPlayers.map(player => {
+        if (player.id === updatedPlayer.id) {
+          return updatedPlayer;
+        }
+        return player;
       });
-      
-      // The server will handle the rest and send updates
+    });
+  };
+  
+  // Reset the game
+  const resetGame = async () => {
+    if (serverStatus === "online" && roomDbId) {
+      try {
+        await SupabaseService.resetGame(roomDbId);
+      } catch (error) {
+        console.error("Error resetting game:", error);
+        
+        // Fall back to offline mode
+        resetGameOffline();
+      }
     } else {
       // In offline mode, reset everything locally
-      setPlayers([]);
-      setCurrentPlayer(null);
-      setGameStatus("playing");
-      setWinner(null);
+      resetGameOffline();
     }
+  };
+  
+  // Helper for resetting the game in offline mode
+  const resetGameOffline = () => {
+    setPlayers([]);
+    setCurrentPlayer(null);
+    setGameStatus("playing");
+    setWinner(null);
     
     // These are reset in both modes
     setIsManualMode(false);
@@ -626,32 +625,47 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   // Handle called number from server
-  const setCalledNumber = (number: number) => {
+  const setCalledNumber = async (number: number) => {
     console.log("Number called:", number);
     
-    if (serverStatus === "online" && socket && roomId) {
-      // In online mode, send a call_number event to the server
-      socket.emit("call_number", {
-        roomId,
-        number
-      });
+    if (serverStatus === "online" && currentPlayer && roomDbId) {
+      try {
+        // Find the index of the number on the current player's board
+        const index = currentPlayer.board.indexOf(number);
+        if (index !== -1) {
+          // Mark the cell
+          await markCell(index);
+        }
+        
+        // Update last clicked number for all players (this happens via real-time subscription)
+      } catch (error) {
+        console.error("Error setting called number:", error);
+        
+        // Fall back to offline mode
+        setCalledNumberOffline(number);
+      }
     } else {
       // In offline mode, handle everything locally
-      if (!currentPlayer || gameStatus !== "playing") {
-        return;
-      }
-      
-      // Find the index of the number on the current player's board
-      const index = currentPlayer.board.indexOf(number);
-      if (index !== -1) {
-        // Mark the cell
-        markCell(index);
-      }
-      
-      // Update last clicked number for all players
-      setLastClickedNumber(number);
-      toast.info(`Number called: ${number}`);
+      setCalledNumberOffline(number);
     }
+  };
+  
+  // Helper for setting called number in offline mode
+  const setCalledNumberOffline = (number: number) => {
+    if (!currentPlayer || gameStatus !== "playing") {
+      return;
+    }
+    
+    // Find the index of the number on the current player's board
+    const index = currentPlayer.board.indexOf(number);
+    if (index !== -1) {
+      // Mark the cell
+      markCellOffline(index);
+    }
+    
+    // Update last clicked number for all players
+    setLastClickedNumber(number);
+    toast.info(`Number called: ${number}`);
   };
   
   // Context value
