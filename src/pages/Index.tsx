@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
+// Wrap the Game component definition with GameProvider
 const Game: React.FC = () => {
   const { roomId, showBoardSelectionDialog, serverStatus, checkServerStatus } = useGame();
   const [isServerChecking, setIsServerChecking] = useState(true);
@@ -98,6 +99,7 @@ const Game: React.FC = () => {
   );
 };
 
+// Create a properly wrapped component for export
 const Index: React.FC = () => {
   return (
     <GameProvider>
