@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { generateBingoBoard } from "@/lib/bingo";
 import { Player } from "@/types/game";
@@ -31,7 +32,7 @@ export class SupabaseService {
   // Check connection to Supabase
   static async checkConnection(): Promise<boolean> {
     try {
-      await supabase.from("rooms").select("*").limit(1);
+      await supabase.from("bingo_rooms").select("*").limit(1);
       return true;
     } catch (error) {
       console.error("Supabase connection error:", error);
@@ -46,7 +47,7 @@ export class SupabaseService {
     try {
       // Insert the new room into the database
       const { data: room, error: roomError } = await supabase
-        .from("rooms")
+        .from("bingo_rooms")
         .insert([{ room_code: roomCode, game_status: "waiting", is_manual_mode: isManual }])
         .select()
         .single();
@@ -61,7 +62,7 @@ export class SupabaseService {
 
       // Insert the player into the database
       const { data: player, error: playerError } = await supabase
-        .from("players")
+        .from("bingo_players")
         .insert([{ room_id: room.id, name: playerName, board: playerBoard, marked_cells: Array(25).fill(false), completed_lines: 0 }])
         .select()
         .single();
@@ -88,7 +89,7 @@ export class SupabaseService {
     try {
       // Get the room from the database
       const { data: room, error: roomError } = await supabase
-        .from("rooms")
+        .from("bingo_rooms")
         .select("*")
         .eq("room_code", roomId)
         .single();
@@ -100,7 +101,7 @@ export class SupabaseService {
 
       // Check if the room is full
       const { count, error: countError } = await supabase
-        .from("players")
+        .from("bingo_players")
         .select("*", { count: "exact", head: true })
         .eq("room_id", room.id);
 
@@ -109,14 +110,14 @@ export class SupabaseService {
         return null;
       }
 
-      if (count >= 5) {
+      if (count && count >= 5) {
         console.log("Room is full");
         return null;
       }
 
       // Insert the player into the database
       const { data: player, error: playerError } = await supabase
-        .from("players")
+        .from("bingo_players")
         .insert([{ room_id: room.id, name: playerName, board: playerBoard, marked_cells: Array(25).fill(false), completed_lines: 0 }])
         .select()
         .single();
@@ -138,7 +139,7 @@ export class SupabaseService {
     try {
       // Get the room from the database
       const { data: room, error: roomError } = await supabase
-        .from("rooms")
+        .from("bingo_rooms")
         .select("*")
         .eq("room_code", roomId)
         .single();
@@ -150,7 +151,7 @@ export class SupabaseService {
 
       // Get the players in the room
       const { data: players, error: playersError } = await supabase
-        .from("players")
+        .from("bingo_players")
         .select("*")
         .eq("room_id", room.id);
 
@@ -161,10 +162,10 @@ export class SupabaseService {
 
       // Get the winner (if there is one)
       const { data: winner, error: winnerError } = await supabase
-        .from("players")
+        .from("bingo_players")
         .select("*")
-        .eq("id", room.winner_id)
-        .single();
+        .eq("id", room.winner_id || '')
+        .maybeSingle();
 
       if (winnerError && winnerError.code !== "PGRST116") { // Ignore "no data found" error
         console.error("Error getting winner:", winnerError);
@@ -187,7 +188,7 @@ export class SupabaseService {
     try {
       // Delete the player from the database
       const { error: playerError } = await supabase
-        .from("players")
+        .from("bingo_players")
         .delete()
         .eq("id", playerId);
 
@@ -208,7 +209,7 @@ export class SupabaseService {
     try {
       // Update the player's marked cells in the database
       const { error: playerError } = await supabase
-        .from("players")
+        .from("bingo_players")
         .update({ [`marked_cells[${index}]`]: true, completed_lines: completedLines })
         .eq("id", playerId);
 
@@ -229,7 +230,7 @@ export class SupabaseService {
     try {
       // Update the room to set the winner and game status
       const { error: roomError } = await supabase
-        .from("rooms")
+        .from("bingo_rooms")
         .update({ game_status: "finished", winner_id: playerId })
         .eq("id", roomDbId);
 
@@ -250,7 +251,7 @@ export class SupabaseService {
     try {
       // Reset the game status and winner
       const { error: roomError } = await supabase
-        .from("rooms")
+        .from("bingo_rooms")
         .update({ game_status: "playing", winner_id: null, last_called_number: null })
         .eq("id", roomDbId);
 
@@ -261,7 +262,7 @@ export class SupabaseService {
 
       // Reset the players' boards
       const { error: playersError } = await supabase
-        .from("players")
+        .from("bingo_players")
         .update({ marked_cells: Array(25).fill(false), completed_lines: 0 })
         .eq("room_id", roomDbId);
 
@@ -282,7 +283,7 @@ export class SupabaseService {
     try {
       // Update the room to set the last called number
       const { error: roomError } = await supabase
-        .from("rooms")
+        .from("bingo_rooms")
         .update({ last_called_number: number })
         .eq("id", roomDbId);
 
@@ -307,7 +308,7 @@ export class SupabaseService {
       onNumberCalled: (data: any) => void;
       onGameWon: (data: any) => void;
     }
-  ): Promise<any | null> {
+  ): Promise<any> {
     const setupRoomChannels = async (roomId: string, callbacks: any) => {
       const { onRoomUpdate, onPlayerJoined, onPlayerLeft, onNumberCalled, onGameWon } = callbacks;
 
@@ -324,7 +325,7 @@ export class SupabaseService {
         .channel(`room-${roomId}`)
         .on(
           "postgres_changes",
-          { event: "*", schema: "public", table: "rooms", filter: `room_code=eq.${roomId}` },
+          { event: "*", schema: "public", table: "bingo_rooms", filter: `room_code=eq.${roomId}` },
           async (payload) => {
             console.log("Room change received:", payload);
             const updatedData = await this.getRoomData(roomId);
@@ -335,12 +336,12 @@ export class SupabaseService {
         )
         .on(
           "postgres_changes",
-          { event: "INSERT", schema: "public", table: "players", filter: `room_id=eq.${initialData.room.id}` },
+          { event: "INSERT", schema: "public", table: "bingo_players", filter: `room_id=eq.${initialData.room.id}` },
           async (payload) => {
             console.log("Player joined:", payload);
             // Fetch the new player's data
             const { data: newPlayer, error } = await supabase
-              .from("players")
+              .from("bingo_players")
               .select("*")
               .eq("id", (payload.new as any).id)
               .single();
@@ -359,7 +360,7 @@ export class SupabaseService {
         )
         .on(
           "postgres_changes",
-          { event: "DELETE", schema: "public", table: "players", filter: `room_id=eq.${initialData.room.id}` },
+          { event: "DELETE", schema: "public", table: "bingo_players", filter: `room_id=eq.${initialData.room.id}` },
           async (payload) => {
             console.log("Player left:", payload);
             onPlayerLeft({ playerName: (payload.old as any).name });
@@ -371,7 +372,7 @@ export class SupabaseService {
         )
         .on(
           "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${initialData.room.id}` },
+          { event: "UPDATE", schema: "public", table: "bingo_rooms", filter: `id=eq.${initialData.room.id}` },
           async (payload) => {
             console.log("Number called:", payload);
             if ((payload.new as any).last_called_number) {
@@ -380,7 +381,7 @@ export class SupabaseService {
             if ((payload.new as any).winner_id) {
               // Fetch the winner's data
               const { data: winner, error } = await supabase
-                .from("players")
+                .from("bingo_players")
                 .select("*")
                 .eq("id", (payload.new as any).winner_id)
                 .single();
@@ -406,10 +407,9 @@ export class SupabaseService {
       return roomChannel;
     };
 
-    let realtimeChannels: any = null;
     try {
       // Create a new channel for the room
-      realtimeChannels = await Promise.resolve(setupRoomChannels(roomId, callbacks));
+      const realtimeChannels = await Promise.resolve(setupRoomChannels(roomId, callbacks));
       return realtimeChannels;
     } catch (error) {
       console.error("Error setting up room listeners:", error);
