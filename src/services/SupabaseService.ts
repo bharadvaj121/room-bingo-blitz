@@ -153,8 +153,13 @@ export class SupabaseService {
       // The room data from the database might not include is_manual_mode if it was created before this field was added
       // We need to ensure it has the right shape for our SupabaseRoom type
       const room: SupabaseRoom = {
-        ...roomData,
-        is_manual_mode: roomData.is_manual_mode ?? false, // Default to false if not present
+        id: roomData.id,
+        created_at: roomData.created_at,
+        room_code: roomData.room_code,
+        game_status: roomData.game_status,
+        is_manual_mode: false, // Default to false as it's not present in the database
+        last_called_number: roomData.last_called_number,
+        winner_id: roomData.winner_id
       };
 
       // Get the players in the room
