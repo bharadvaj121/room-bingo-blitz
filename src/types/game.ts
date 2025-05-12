@@ -12,6 +12,7 @@ export interface Player {
   board: number[];
   markedCells: boolean[];
   completedLines: number;
+  isHost?: boolean;
 }
 
 // Game context interface
@@ -27,6 +28,8 @@ export interface GameContextProps {
   lastClickedNumber: number | null;
   showBoardSelectionDialog: boolean;
   serverStatus: ServerStatus;
+  isHost: boolean; // New property to track if current player is host
+  inWaitingRoom: boolean; // New property to track if in waiting room
   setPlayerName: (name: string) => void;
   setRoomId: (id: string) => void;
   joinRoom: () => void;
@@ -40,6 +43,7 @@ export interface GameContextProps {
   manualNumbers: number[];
   addManualNumber: (num: number) => void;
   checkServerStatus: () => Promise<boolean>;
+  startGame: () => void; // New function to start game (host only)
 }
 
 // Supabase specific types
@@ -50,6 +54,7 @@ export interface SupabaseRoom {
   winner_id: string | null;
   last_called_number: number | null;
   created_at?: string | null;
+  is_manual_mode: boolean;
 }
 
 export interface SupabasePlayer {

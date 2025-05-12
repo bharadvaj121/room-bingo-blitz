@@ -17,8 +17,6 @@ const RoomJoin: React.FC = () => {
     setRoomId, 
     createRoom, 
     joinRoom,
-    showBoardSelectionDialog,
-    completeJoinRoom,
     serverStatus
   } = useGame();
   
@@ -107,10 +105,10 @@ const RoomJoin: React.FC = () => {
       
       // Wait a bit to ensure room ID is set before joining room
       setTimeout(() => {
-        // Join room - this will now show the board selection dialog
+        // Join room - non-hosts always get random boards
         joinRoom();
         
-        toast.success("Room joined successfully!");
+        toast.success("Joining room...");
         setIsLoading(false);
       }, 100);
     } catch (error) {
@@ -230,29 +228,6 @@ const RoomJoin: React.FC = () => {
                       {isLoading ? (
                         <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                       ) : null}
-                      Manual Setup
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-
-              {/* Board Selection Dialog for Joining a Room */}
-              <Dialog open={showBoardSelectionDialog} onOpenChange={() => {}}>
-                <DialogContent className="bg-bingo-card border-2 border-bingo-border">
-                  <DialogHeader>
-                    <DialogTitle className="text-bingo-border text-xl">Choose Your Board Setup</DialogTitle>
-                  </DialogHeader>
-                  <div className="flex flex-col sm:flex-row gap-4 py-4">
-                    <Button 
-                      onClick={() => completeJoinRoom(false)}
-                      className="flex-1 bg-bingo-accent hover:bg-bingo-accent/80 text-bingo-text"
-                    >
-                      Random Numbers
-                    </Button>
-                    <Button 
-                      onClick={() => completeJoinRoom(true)}
-                      className="flex-1 bg-bingo-border hover:bg-bingo-border/80 text-white"
-                    >
                       Manual Setup
                     </Button>
                   </div>

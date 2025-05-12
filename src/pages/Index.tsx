@@ -4,6 +4,7 @@ import { GameProvider, useGame } from "@/contexts/GameContext";
 import RoomJoin from "@/components/RoomJoin";
 import GameRoom from "@/components/GameRoom";
 import ComputerGame from "@/components/ComputerGame";
+import WaitingRoom from "@/components/WaitingRoom"; // Import the new WaitingRoom component
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Computer, Users, Info, Wifi, WifiOff } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -12,7 +13,14 @@ import { toast } from "sonner";
 
 // Wrap the Game component definition with GameProvider
 const Game: React.FC = () => {
-  const { roomId, showBoardSelectionDialog, serverStatus, checkServerStatus } = useGame();
+  const { 
+    roomId, 
+    showBoardSelectionDialog, 
+    serverStatus, 
+    inWaitingRoom,
+    checkServerStatus 
+  } = useGame();
+  
   const [isServerChecking, setIsServerChecking] = useState(true);
 
   // Check server status on component mount
@@ -36,7 +44,8 @@ const Game: React.FC = () => {
   }, [checkServerStatus]);
 
   // Don't show GameRoom while we're in board selection mode for joining a room
-  const shouldShowGameRoom = roomId && !showBoardSelectionDialog;
+  const shouldShowGameRoom = roomId && !showBoardSelectionDialog && !inWaitingRoom;
+  const shouldShowWaitingRoom = roomId && !showBoardSelectionDialog && inWaitingRoom;
 
   return (
     <div className="min-h-screen py-8 px-4 bg-gradient-to-b from-blue-50 to-purple-50">
@@ -61,7 +70,11 @@ const Game: React.FC = () => {
         )}
       </div>
       
-      {!shouldShowGameRoom ? (
+      {shouldShowWaitingRoom ? (
+        <WaitingRoom />
+      ) : shouldShowGameRoom ? (
+        <GameRoom />
+      ) : (
         <>
           <Tabs defaultValue="multiplayer" className="w-full max-w-4xl mx-auto">
             <TabsList className="grid w-full grid-cols-2 mb-8">
@@ -92,8 +105,6 @@ const Game: React.FC = () => {
             </TabsContent>
           </Tabs>
         </>
-      ) : (
-        <GameRoom />
       )}
     </div>
   );

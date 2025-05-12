@@ -157,7 +157,7 @@ export class SupabaseService {
         created_at: roomData.created_at,
         room_code: roomData.room_code,
         game_status: roomData.game_status,
-        is_manual_mode: false, // Default to false as it's not present in the database
+        is_manual_mode: roomData.is_manual_mode || false, // Default to false if not present
         last_called_number: roomData.last_called_number,
         winner_id: roomData.winner_id
       };
@@ -238,6 +238,27 @@ export class SupabaseService {
       return true;
     } catch (error) {
       console.error("Error marking number:", error);
+      return false;
+    }
+  }
+
+  // Start the game (change status from waiting to playing)
+  static async startGame(roomDbId: string): Promise<boolean> {
+    try {
+      // Update the room to set the game status to playing
+      const { error: roomError } = await supabase
+        .from("bingo_rooms")
+        .update({ game_status: "playing" })
+        .eq("id", roomDbId);
+
+      if (roomError) {
+        console.error("Error starting game:", roomError);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error starting game:", error);
       return false;
     }
   }
@@ -391,10 +412,20 @@ export class SupabaseService {
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "bingo_rooms", filter: `id=eq.${initialData.room.id}` },
           async (payload) => {
-            console.log("Number called:", payload);
+            console.log("Room updated:", payload);
+            
+            // Check for game status change to "playing"
+            if ((payload.new as any).game_status === "playing" && 
+                (payload.old as any).game_status === "waiting") {
+              console.log("Game started!");
+            }
+            
+            // Check for called number
             if ((payload.new as any).last_called_number) {
               onNumberCalled({ number: (payload.new as any).last_called_number });
             }
+            
+            // Check for winner
             if ((payload.new as any).winner_id) {
               // Fetch the winner's data
               const { data: winner, error } = await supabase

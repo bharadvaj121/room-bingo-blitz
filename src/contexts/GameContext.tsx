@@ -1,9 +1,10 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
 import { toast } from "sonner";
 import { SupabaseService } from "@/services/SupabaseService";
 import { Player, GameStatus, ServerStatus, GameContextProps } from "@/types/game";
-import type { SupabaseRoomData } from "@/services/SupabaseService"; // Fix the import
+import type { SupabaseRoomData } from "@/services/SupabaseService";
 
 // Create context
 const GameContext = createContext<GameContextProps | undefined>(undefined);
@@ -19,7 +20,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [roomDbId, setRoomDbId] = useState<string | null>(null); // Database ID of the room
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
-  const [gameStatus, setGameStatus] = useState<GameStatus>("playing");
+  const [gameStatus, setGameStatus] = useState<GameStatus>("waiting");
   const [winner, setWinner] = useState<Player | null>(null);
   const [isManualMode, setIsManualMode] = useState<boolean>(false);
   const [lastClickedPlayer, setLastClickedPlayer] = useState<string | null>(null);
@@ -29,6 +30,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [serverStatus, setServerStatus] = useState<ServerStatus>("checking");
   const [subscriptions, setSubscriptions] = useState<any>(null);
   const [playerId, setPlayerId] = useState<string | null>(null); // Current player's ID
+  const [isHost, setIsHost] = useState<boolean>(false); // New state to track if current player is host
+  const [inWaitingRoom, setInWaitingRoom] = useState<boolean>(false); // New state for waiting room
   
   // Load game state from localStorage on component mount
   useEffect(() => {
@@ -99,12 +102,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (data.room.room_code === roomId) {
       // Convert Supabase players to our Player format
-      const updatedPlayers: Player[] = data.players.map(p => ({
+      const updatedPlayers: Player[] = data.players.map((p, index) => ({
         id: p.id,
-        name: p.name,
+        name: p.name || `Player ${index + 1}`,
         board: p.board as number[],
         markedCells: p.marked_cells as boolean[],
-        completedLines: p.completed_lines
+        completedLines: p.completed_lines,
+        isHost: index === 0 // First player is host
       }));
       
       // Update players list
@@ -115,12 +119,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const player = updatedPlayers.find(p => p.id === playerId);
         if (player) {
           setCurrentPlayer(player);
+          setIsHost(player.isHost || false);
         }
       }
       
       // Update game status
       setGameStatus(data.room.game_status as GameStatus);
       setRoomDbId(data.room.id);
+      
+      // If game has started, exit waiting room
+      if (data.room.game_status === "playing") {
+        setInWaitingRoom(false);
+      }
       
       // Update winner if there is one
       if (data.winner) {
@@ -129,7 +139,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: data.winner.name,
           board: data.winner.board as number[],
           markedCells: data.winner.marked_cells as boolean[],
-          completedLines: data.winner.completed_lines
+          completedLines: data.winner.completed_lines,
+          isHost: false
         };
         setWinner(winnerPlayer);
       }
@@ -144,11 +155,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const handlePlayerJoined = (data: any) => {
     console.log("Player joined:", data);
     toast.info(`${data.playerName} joined the game`);
+    
+    // Refresh room data to get updated player list
+    if (roomId) {
+      SupabaseService.getRoomData(roomId).then(data => {
+        if (data) {
+          handleRoomUpdate(data);
+        }
+      });
+    }
   };
   
   const handlePlayerLeft = (data: any) => {
     console.log("Player left:", data);
     toast.info(`${data.playerName} left the game`);
+    
+    // Refresh room data to get updated player list
+    if (roomId) {
+      SupabaseService.getRoomData(roomId).then(data => {
+        if (data) {
+          handleRoomUpdate(data);
+        }
+      });
+    }
   };
   
   const handleNumberCalled = (data: any) => {
@@ -202,7 +231,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    // Set manual mode state
+    // Set manual mode state (only for host)
     setIsManualMode(isManual);
     
     // Clear manual numbers array
@@ -231,12 +260,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (roomData) {
             // Convert Supabase players to our Player format
-            const initialPlayers: Player[] = roomData.players.map((p: any) => ({
+            const initialPlayers: Player[] = roomData.players.map((p, index) => ({
               id: p.id,
               name: p.name,
               board: p.board as number[],
               markedCells: p.marked_cells as boolean[],
-              completedLines: p.completed_lines
+              completedLines: p.completed_lines,
+              isHost: index === 0 // First player is host
             }));
             
             // Set players and current player
@@ -244,12 +274,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const player = initialPlayers.find(p => p.id === result.playerId);
             if (player) {
               setCurrentPlayer(player);
+              setIsHost(true); // Creator is always host
             }
             
             // Set room database ID
             setRoomDbId(roomData.room.id);
             
-            toast.success("Room created successfully!");
+            // Enter waiting room mode
+            setInWaitingRoom(true);
+            
+            toast.success("Room created successfully! Share the code with your friends to join.");
           }
         } else {
           toast.error("Failed to create room. Please try again.");
@@ -275,17 +309,47 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name: playerName,
       board: playerBoard,
       markedCells: Array(25).fill(false),
-      completedLines: 0
+      completedLines: 0,
+      isHost: true
     };
     
     // Set up the game
     setPlayers([player]);
     setCurrentPlayer(player);
-    setGameStatus("playing");
+    setGameStatus("waiting");
     setWinner(null);
     setPlayerId(localPlayerId);
+    setIsHost(true);
+    setInWaitingRoom(true);
     
     console.log("Room created offline with player:", player);
+  };
+  
+  // Start game (host only)
+  const startGame = async () => {
+    if (!isHost || players.length < 2) {
+      console.log("Cannot start game: not host or not enough players");
+      if (!isHost) toast.error("Only the host can start the game");
+      if (players.length < 2) toast.error("Need at least 2 players to start");
+      return;
+    }
+    
+    if (serverStatus === "online" && roomDbId) {
+      try {
+        await SupabaseService.startGame(roomDbId);
+        setGameStatus("playing");
+        setInWaitingRoom(false);
+        toast.success("Game started!");
+      } catch (error) {
+        console.error("Error starting game:", error);
+        toast.error("Failed to start game. Please try again.");
+      }
+    } else {
+      // In offline mode, simply update the game status
+      setGameStatus("playing");
+      setInWaitingRoom(false);
+      toast.success("Game started!");
+    }
   };
   
   // Add a manual number
@@ -311,18 +375,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     console.log("Joining room with ID:", roomId);
     
-    // Show board selection dialog first - don't create the player yet
+    // Non-hosts always get random boards, skip the board selection dialog
     setIsManualMode(false);
-    setShowBoardSelectionDialog(true);
+    completeJoinRoom(false);
   };
   
   // Complete join process with board selection
   const completeJoinRoom = async (isManual: boolean) => {
-    // Generate a board based on manual mode
-    const playerBoard = isManual ? Array(25).fill(0) : generateBingoBoard();
-    
-    // Set manual mode state
-    setIsManualMode(isManual);
+    // For non-hosts, always use random board
+    const playerBoard = generateBingoBoard();
     
     if (!roomId) {
       toast.error("Room ID not set");
@@ -349,12 +410,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (roomData) {
             console.log("Got room data:", roomData);
             // Convert Supabase players to our Player format
-            const initialPlayers: Player[] = roomData.players.map((p) => ({
+            const initialPlayers: Player[] = roomData.players.map((p, index) => ({
               id: p.id,
-              name: p.name,
-              board: Array.isArray(p.board) ? p.board.map(Number) : [], // Ensure we have a number array
+              name: p.name || `Player ${index + 1}`,
+              board: Array.isArray(p.board) ? p.board.map(Number) : [], 
               markedCells: Array.isArray(p.marked_cells) ? p.marked_cells : Array(25).fill(false),
-              completedLines: p.completed_lines
+              completedLines: p.completed_lines,
+              isHost: index === 0 // First player is host
             }));
             
             console.log("Processed players:", initialPlayers);
@@ -364,12 +426,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const player = initialPlayers.find(p => p.id === result.playerId);
             if (player) {
               setCurrentPlayer(player);
+              setIsHost(player.isHost || false);
             } else {
               console.error("Could not find current player in player list");
             }
             
             // Set game status
             setGameStatus(roomData.room.game_status as GameStatus);
+            
+            // Enter waiting room or game depending on status
+            if (roomData.room.game_status === "waiting") {
+              setInWaitingRoom(true);
+            } else {
+              setInWaitingRoom(false);
+            }
             
             toast.success("Joined room successfully!");
           } else {
@@ -404,7 +474,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name: playerName,
       board: playerBoard,
       markedCells: Array(25).fill(false),
-      completedLines: 0
+      completedLines: 0,
+      isHost: false
     };
     
     // Add the player to the game
@@ -423,6 +494,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setCurrentPlayer(player);
     setPlayerId(localPlayerId);
+    setInWaitingRoom(true);
   };
   
   // Leave the current room
@@ -448,12 +520,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPlayerId(null);
     setPlayers([]);
     setCurrentPlayer(null);
-    setGameStatus("playing");
+    setGameStatus("waiting");
     setWinner(null);
     setIsManualMode(false);
     setLastClickedPlayer(null);
     setLastClickedNumber(null);
     setShowBoardSelectionDialog(false);
+    setInWaitingRoom(false);
+    setIsHost(false);
     
     console.log("Left room");
   };
@@ -485,6 +559,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Update the server
         await SupabaseService.markNumber(playerId, index, completedLines);
+        
+        // Broadcast the number to all players
+        await SupabaseService.setCalledNumber(roomDbId, number);
         
         // Check if the player has won (5 or more completed lines)
         if (completedLines >= 5) {
@@ -630,7 +707,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetGameOffline = () => {
     setPlayers([]);
     setCurrentPlayer(null);
-    setGameStatus("playing");
+    setGameStatus("waiting");
     setWinner(null);
     
     // These are reset in both modes
@@ -699,6 +776,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     manualNumbers,
     showBoardSelectionDialog,
     serverStatus,
+    isHost,
+    inWaitingRoom,
     setPlayerName: handlePlayerNameChange,
     setRoomId: handleRoomIdChange,
     joinRoom,
@@ -710,7 +789,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     resetGame,
     setCalledNumber,
     addManualNumber,
-    checkServerStatus
+    checkServerStatus,
+    startGame
   };
   
   return (
