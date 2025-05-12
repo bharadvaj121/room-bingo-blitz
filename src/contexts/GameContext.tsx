@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
 import { toast } from "sonner";
 import { SupabaseService } from "@/services/SupabaseService";
-import { Player, GameStatus, ServerStatus, GameContextProps, SupabaseRoomData } from "@/types/game";
+import { Player, GameStatus, ServerStatus, GameContextProps } from "@/types/game";
+import type { SupabaseRoomData } from "@/services/SupabaseService"; // Fix the import
 
 // Create context
 const GameContext = createContext<GameContextProps | undefined>(undefined);
@@ -65,16 +66,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Set up listeners for the room
     const setupListeners = async () => {
-      const listeners = await SupabaseService.setupRoomListeners(roomId, {
-        onRoomUpdate: handleRoomUpdate,
-        onPlayerJoined: handlePlayerJoined,
-        onPlayerLeft: handlePlayerLeft,
-        onNumberCalled: handleNumberCalled,
-        onGameWon: handleGameWon
-      });
-      
-      if (listeners) {
-        setSubscriptions(listeners);
+      try {
+        const listeners = await SupabaseService.setupRoomListeners(roomId, {
+          onRoomUpdate: handleRoomUpdate,
+          onPlayerJoined: handlePlayerJoined,
+          onPlayerLeft: handlePlayerLeft,
+          onNumberCalled: handleNumberCalled,
+          onGameWon: handleGameWon
+        });
+        
+        if (listeners) {
+          setSubscriptions(listeners);
+        }
+      } catch (error) {
+        console.error("Error setting up room listeners:", error);
+        toast.error("Failed to connect to real-time updates. Some features may not work properly.");
       }
     };
     
@@ -328,9 +334,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (isOnline) {
       try {
+        console.log("Attempting to join room online with room ID:", roomId);
         const result = await SupabaseService.joinRoom(roomId, playerName, playerBoard);
         
         if (result) {
+          console.log("Join room successful, got playerId:", result.playerId);
           // Set player ID
           setPlayerId(result.playerId);
           setRoomDbId(result.roomDbId);
@@ -339,26 +347,35 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const roomData = await SupabaseService.getRoomData(roomId);
           
           if (roomData) {
+            console.log("Got room data:", roomData);
             // Convert Supabase players to our Player format
-            const initialPlayers: Player[] = roomData.players.map((p: any) => ({
+            const initialPlayers: Player[] = roomData.players.map((p) => ({
               id: p.id,
               name: p.name,
-              board: p.board as number[],
-              markedCells: p.marked_cells as boolean[],
+              board: Array.isArray(p.board) ? p.board.map(Number) : [], // Ensure we have a number array
+              markedCells: Array.isArray(p.marked_cells) ? p.marked_cells : Array(25).fill(false),
               completedLines: p.completed_lines
             }));
+            
+            console.log("Processed players:", initialPlayers);
             
             // Set players and current player
             setPlayers(initialPlayers);
             const player = initialPlayers.find(p => p.id === result.playerId);
             if (player) {
               setCurrentPlayer(player);
+            } else {
+              console.error("Could not find current player in player list");
             }
             
             // Set game status
             setGameStatus(roomData.room.game_status as GameStatus);
             
             toast.success("Joined room successfully!");
+          } else {
+            console.error("Failed to get room data after joining");
+            toast.error("Failed to get room data after joining");
+            joinOfflineRoom(playerBoard);
           }
         } else {
           toast.error("Failed to join room. Room may not exist or be full.");

@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useGame } from "@/contexts/GameContext";
 import BingoBoard from "@/components/BingoBoard";
 import ManualBoardSetup from "@/components/ManualBoardSetup";
@@ -21,10 +20,28 @@ const GameRoom: React.FC = () => {
     leaveRoom,
     resetGame,
     createRoom,
-    setCalledNumber
+    setCalledNumber,
+    serverStatus
   } = useGame();
   
   const [showResetOptions, setShowResetOptions] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Set loading state when players or currentPlayer changes
+    if (players.length > 0 && currentPlayer) {
+      setIsLoading(false);
+    }
+    
+    // If we've waited more than 10 seconds and still no players, show a warning
+    const timeoutId = setTimeout(() => {
+      if (players.length === 0 || !currentPlayer) {
+        toast.warning("It's taking longer than expected to connect to the game. This might be due to connection issues.");
+      }
+    }, 10000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [players, currentPlayer]);
 
   if (!roomId) return null;
 
@@ -51,7 +68,7 @@ const GameRoom: React.FC = () => {
     );
   }
 
-  // If not in manual mode but no players/current player, show loading state
+  // If not in manual mode but no players/current player, show loading state with more debug info
   if (!currentPlayer || players.length === 0) {
     return (
       <div className="w-full max-w-4xl mx-auto">
@@ -62,12 +79,21 @@ const GameRoom: React.FC = () => {
             Room ID: {roomId}
             <br />
             Initializing game board...
+            <br />
+            Server status: {serverStatus}
+            <br />
+            Players found: {players.length}
           </AlertDescription>
         </Alert>
         
         <div className="p-4 bg-bingo-card border-2 border-bingo-border rounded-lg shadow">
           <div className="flex flex-col gap-4 items-center justify-center">
             <RefreshCw className="w-10 h-10 text-bingo-border animate-spin" />
+            <p className="text-center text-sm">
+              {isLoading ? 
+                "Connecting to game server... This may take a moment." : 
+                "Setting up your game board..."}
+            </p>
             <Button 
               onClick={leaveRoom}
               variant="outline"

@@ -1,8 +1,15 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { generateBingoBoard } from "@/lib/bingo";
-import { GameStatus, SupabaseRoomData, SupabasePlayer, SupabaseRoom } from "@/types/game";
+import { GameStatus, SupabasePlayer, SupabaseRoom } from "@/types/game";
 import { RealtimeChannel } from "@supabase/supabase-js";
+
+// Define the SupabaseRoomData interface here to export it properly
+export interface SupabaseRoomData {
+  room: SupabaseRoom;
+  players: SupabasePlayer[];
+  winner: SupabasePlayer | null;
+}
 
 // Generate player ID
 const generatePlayerId = () => `player-${Math.random().toString(36).substring(2, 9)}`;
@@ -194,7 +201,9 @@ export class SupabaseService {
       
       // Get the number at this index - safely cast to array since we know it's an array
       const board = Array.isArray(playerData.board) ? playerData.board : [];
-      const number = board[index];
+      
+      // Fix: Ensure we're getting a number, not a Json type
+      const number = board[index] !== null && board[index] !== undefined ? Number(board[index]) : 0;
       
       // Update player's marked cells
       const { error: updateError } = await supabase
@@ -320,7 +329,7 @@ export class SupabaseService {
         id: p.id,
         name: p.name,
         room_id: p.room_id,
-        board: Array.isArray(p.board) ? p.board : [],
+        board: Array.isArray(p.board) ? p.board.map(Number) : [], // Fix: Ensure conversion to number[]
         marked_cells: Array.isArray(p.marked_cells) ? p.marked_cells : Array(25).fill(false),
         completed_lines: p.completed_lines || 0,
         created_at: p.created_at
@@ -357,157 +366,167 @@ export class SupabaseService {
     onPlayerLeft: (player: any) => void;
     onNumberCalled: (data: any) => void;
     onGameWon: (data: any) => void;
-  }) {
-    // First, get room ID from room code
-    return supabase
-      .from('bingo_rooms')
-      .select('id')
-      .eq('room_code', roomCode)
-      .limit(1)
-      .then(({ data, error }) => {
-        if (error || !data || data.length === 0) {
-          console.error("Room not found for real-time subscription:", error);
-          return null;
-        }
-        
-        const roomId = data[0].id;
-        
-        // Set up channel for room changes
-        const roomChannel = supabase
-          .channel(`room:${roomId}`)
-          .on(
-            'postgres_changes',
-            { 
-              event: '*', 
-              schema: 'public',
-              table: 'bingo_rooms',
-              filter: `id=eq.${roomId}`
-            },
-            async (payload) => {
-              console.log("Room update:", payload);
-              
-              const newData = payload.new as Record<string, any>;
-              const oldData = payload.old as Partial<Record<string, any>> || {};
-
-              // Get full room data including all players
-              const roomData = await this.getRoomData(roomCode);
-              if (roomData) {
-                callbacks.onRoomUpdate(roomData);
-                
-                // Check for game won
-                if (newData && newData.game_status === 'finished' && newData.winner_id) {
-                  callbacks.onGameWon({
-                    winner: roomData.winner
-                  });
-                }
-                
-                // Check for number called
-                if (newData && oldData && newData.last_called_number !== oldData.last_called_number) {
-                  callbacks.onNumberCalled({
-                    number: newData.last_called_number
-                  });
-                }
-              }
-            }
-          )
-          .subscribe();
+  }): Promise<{
+    roomChannel: RealtimeChannel;
+    playersChannel: RealtimeChannel;
+    unsubscribe: () => void;
+  } | null> {
+    // Fix the Promise chain error by returning a proper Promise
+    return new Promise((resolve, reject) => {
+      // First, get room ID from room code
+      supabase
+        .from('bingo_rooms')
+        .select('id')
+        .eq('room_code', roomCode)
+        .limit(1)
+        .then(({ data, error }) => {
+          if (error || !data || data.length === 0) {
+            console.error("Room not found for real-time subscription:", error);
+            reject(error);
+            return;
+          }
           
-        // Set up channel for player changes
-        const playersChannel = supabase
-          .channel(`players:${roomId}`)
-          .on(
-            'postgres_changes',
-            {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'bingo_players',
-              filter: `room_id=eq.${roomId}`
-            },
-            (payload) => {
-              console.log("Player joined:", payload);
-              const newData = payload.new as Record<string, any>;
-              callbacks.onPlayerJoined({
-                playerName: newData.name,
-                playerId: newData.id
-              });
-            }
-          )
-          .on(
-            'postgres_changes',
-            {
-              event: 'DELETE',
-              schema: 'public',
-              table: 'bingo_players',
-              filter: `room_id=eq.${roomId}`
-            },
-            (payload) => {
-              console.log("Player left:", payload);
-              const oldData = payload.old as Record<string, any>;
-              callbacks.onPlayerLeft({
-                playerName: oldData.name,
-                playerId: oldData.id
-              });
-            }
-          )
-          .on(
-            'postgres_changes',
-            {
-              event: 'UPDATE',
-              schema: 'public',
-              table: 'bingo_players',
-              filter: `room_id=eq.${roomId}`
-            },
-            (payload) => {
-              // Handle player updates (e.g., marked cells)
-              console.log("Player updated:", payload);
-              
-              const newData = payload.new as Record<string, any>;
-              const oldData = payload.old as Record<string, any>;
-
-              // When a player marks a cell, notify others
-              if (newData && oldData && 
-                  JSON.stringify(newData.marked_cells) !== JSON.stringify(oldData.marked_cells)) {
-                // Get the number called from the difference between old and new marked cells
-                const oldCells = Array.isArray(oldData.marked_cells) ? oldData.marked_cells : [];
-                const newCells = Array.isArray(newData.marked_cells) ? newData.marked_cells : [];
-                let index = -1;
+          const roomId = data[0].id;
+          
+          // Set up channel for room changes
+          const roomChannel = supabase
+            .channel(`room:${roomId}`)
+            .on(
+              'postgres_changes',
+              { 
+                event: '*', 
+                schema: 'public',
+                table: 'bingo_rooms',
+                filter: `id=eq.${roomId}`
+              },
+              async (payload) => {
+                console.log("Room update:", payload);
                 
-                for (let i = 0; i < newCells.length; i++) {
-                  if (newCells[i] && !oldCells[i]) {
-                    index = i;
-                    break;
+                const newData = payload.new as Record<string, any>;
+                const oldData = payload.old as Partial<Record<string, any>> || {};
+
+                // Get full room data including all players
+                const roomData = await this.getRoomData(roomCode);
+                if (roomData) {
+                  callbacks.onRoomUpdate(roomData);
+                  
+                  // Check for game won
+                  if (newData && 'game_status' in newData && 'winner_id' in newData && 
+                      newData.game_status === 'finished' && newData.winner_id) {
+                    callbacks.onGameWon({
+                      winner: roomData.winner
+                    });
+                  }
+                  
+                  // Check for number called
+                  if (newData && oldData && 
+                      'last_called_number' in newData && 
+                      'last_called_number' in oldData && 
+                      newData.last_called_number !== oldData.last_called_number) {
+                    callbacks.onNumberCalled({
+                      number: newData.last_called_number
+                    });
                   }
                 }
+              }
+            )
+            .subscribe();
+            
+          // Set up channel for player changes
+          const playersChannel = supabase
+            .channel(`players:${roomId}`)
+            .on(
+              'postgres_changes',
+              {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'bingo_players',
+                filter: `room_id=eq.${roomId}`
+              },
+              (payload) => {
+                console.log("Player joined:", payload);
+                const newData = payload.new as Record<string, any>;
+                callbacks.onPlayerJoined({
+                  playerName: newData.name,
+                  playerId: newData.id
+                });
+              }
+            )
+            .on(
+              'postgres_changes',
+              {
+                event: 'DELETE',
+                schema: 'public',
+                table: 'bingo_players',
+                filter: `room_id=eq.${roomId}`
+              },
+              (payload) => {
+                console.log("Player left:", payload);
+                const oldData = payload.old as Record<string, any>;
+                callbacks.onPlayerLeft({
+                  playerName: oldData.name,
+                  playerId: oldData.id
+                });
+              }
+            )
+            .on(
+              'postgres_changes',
+              {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'bingo_players',
+                filter: `room_id=eq.${roomId}`
+              },
+              (payload) => {
+                // Handle player updates (e.g., marked cells)
+                console.log("Player updated:", payload);
                 
-                if (index >= 0) {
-                  const board = Array.isArray(newData.board) ? newData.board : [];
-                  const number = board[index];
-                  callbacks.onNumberCalled({
-                    number: number,
-                    playerName: newData.name
-                  });
+                const newData = payload.new as Record<string, any>;
+                const oldData = payload.old as Record<string, any>;
+
+                // When a player marks a cell, notify others
+                if (newData && oldData && 
+                    JSON.stringify(newData.marked_cells) !== JSON.stringify(oldData.marked_cells)) {
+                  // Get the number called from the difference between old and new marked cells
+                  const oldCells = Array.isArray(oldData.marked_cells) ? oldData.marked_cells : [];
+                  const newCells = Array.isArray(newData.marked_cells) ? newData.marked_cells : [];
+                  let index = -1;
+                  
+                  for (let i = 0; i < newCells.length; i++) {
+                    if (newCells[i] && !oldCells[i]) {
+                      index = i;
+                      break;
+                    }
+                  }
+                  
+                  if (index >= 0) {
+                    const board = Array.isArray(newData.board) ? newData.board : [];
+                    // Fix: Ensure we're getting a number, not a Json type
+                    const number = board[index] !== null && board[index] !== undefined ? Number(board[index]) : 0;
+                    callbacks.onNumberCalled({
+                      number: number,
+                      playerName: newData.name
+                    });
+                  }
                 }
               }
+            )
+            .subscribe();
+            
+          // Return the channels and unsubscribe function
+          resolve({
+            roomChannel,
+            playersChannel,
+            unsubscribe: () => {
+              supabase.removeChannel(roomChannel);
+              supabase.removeChannel(playersChannel);
             }
-          )
-          .subscribe();
-          
-        return {
-          roomChannel,
-          playersChannel,
-          unsubscribe: () => {
-            supabase.removeChannel(roomChannel);
-            supabase.removeChannel(playersChannel);
-          }
-        };
-      })
-      .then(result => {
-        // Adding proper promise handling
-        return result;
-      })
-      .catch(error => {
-        console.error("Error setting up room listeners:", error);
-        return null;
-      });
+          });
+        })
+        .catch(error => {
+          console.error("Error setting up room listeners:", error);
+          reject(error);
+        });
+    });
   }
 }
