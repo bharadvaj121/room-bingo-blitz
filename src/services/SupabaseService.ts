@@ -10,6 +10,7 @@ export type SupabaseRoom = {
   game_status: string;
   is_manual_mode: boolean;
   last_called_number: number | null;
+  winner_id?: string | null;
 };
 
 export type SupabasePlayer = {
@@ -138,7 +139,7 @@ export class SupabaseService {
   static async getRoomData(roomId: string): Promise<SupabaseRoomData | null> {
     try {
       // Get the room from the database
-      const { data: room, error: roomError } = await supabase
+      const { data: roomData, error: roomError } = await supabase
         .from("bingo_rooms")
         .select("*")
         .eq("room_code", roomId)
@@ -148,6 +149,13 @@ export class SupabaseService {
         console.error("Error getting room:", roomError);
         return null;
       }
+
+      // The room data from the database might not include is_manual_mode if it was created before this field was added
+      // We need to ensure it has the right shape for our SupabaseRoom type
+      const room: SupabaseRoom = {
+        ...roomData,
+        is_manual_mode: roomData.is_manual_mode ?? false, // Default to false if not present
+      };
 
       // Get the players in the room
       const { data: players, error: playersError } = await supabase
@@ -161,21 +169,25 @@ export class SupabaseService {
       }
 
       // Get the winner (if there is one)
-      const { data: winner, error: winnerError } = await supabase
-        .from("bingo_players")
-        .select("*")
-        .eq("id", room.winner_id || '')
-        .maybeSingle();
+      let winner = null;
+      if (room.winner_id) {
+        const { data: winnerData, error: winnerError } = await supabase
+          .from("bingo_players")
+          .select("*")
+          .eq("id", room.winner_id)
+          .maybeSingle();
 
-      if (winnerError && winnerError.code !== "PGRST116") { // Ignore "no data found" error
-        console.error("Error getting winner:", winnerError);
-        return null;
+        if (winnerError && winnerError.code !== "PGRST116") { // Ignore "no data found" error
+          console.error("Error getting winner:", winnerError);
+        } else if (winnerData) {
+          winner = winnerData as SupabasePlayer;
+        }
       }
 
       return {
-        room: room as SupabaseRoom,
+        room,
         players: players as SupabasePlayer[],
-        winner: winner as SupabasePlayer | null,
+        winner,
       };
     } catch (error) {
       console.error("Error getting room data:", error);
