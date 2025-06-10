@@ -52,6 +52,7 @@ export type Database = {
           created_at: string | null
           game_status: string | null
           id: string
+          is_manual_mode: boolean | null
           last_called_number: number | null
           room_code: string
           winner_id: string | null
@@ -60,6 +61,7 @@ export type Database = {
           created_at?: string | null
           game_status?: string | null
           id?: string
+          is_manual_mode?: boolean | null
           last_called_number?: number | null
           room_code: string
           winner_id?: string | null
@@ -68,6 +70,7 @@ export type Database = {
           created_at?: string | null
           game_status?: string | null
           id?: string
+          is_manual_mode?: boolean | null
           last_called_number?: number | null
           room_code?: string
           winner_id?: string | null

@@ -294,7 +294,7 @@ export class SupabaseService {
         created_at: roomData.created_at || new Date().toISOString(),
         room_code: roomData.room_code,
         game_status: roomData.game_status || "waiting",
-        is_manual_mode: roomData.is_manual_mode || false,
+        is_manual_mode: roomData.is_manual_mode ?? false,
         last_called_number: roomData.last_called_number,
         winner_id: roomData.winner_id
       };
