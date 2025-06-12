@@ -1,120 +1,90 @@
 
-import React, { useState, useEffect } from "react";
-import { GameProvider, useGame } from "@/contexts/GameContext";
-import RoomJoin from "@/components/RoomJoin";
-import GameRoom from "@/components/GameRoom";
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Computer, Users } from "lucide-react";
 import ComputerGame from "@/components/ComputerGame";
-import WaitingRoom from "@/components/WaitingRoom";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Computer, Users, Info, Wifi, WifiOff } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
+import RoomJoin from "@/components/RoomJoin";
 
-// Wrap the Game component definition with GameProvider
-const Game: React.FC = () => {
-  const { 
-    roomId, 
-    serverStatus, 
-    inWaitingRoom,
-    checkServerStatus 
-  } = useGame();
-  
-  const [isServerChecking, setIsServerChecking] = useState(true);
+const Index = () => {
+  const [gameMode, setGameMode] = useState<"select" | "computer" | "multiplayer">("select");
 
-  // Check server status on component mount
-  useEffect(() => {
-    const checkStatus = async () => {
-      setIsServerChecking(true);
-      try {
-        const online = await checkServerStatus();
-        if (!online) {
-          toast.error("Failed to connect to game server. Playing in local mode.");
-        }
-      } catch (error) {
-        console.error("Error checking server status:", error);
-        toast.error("Error checking server connection. Playing in local mode.");
-      } finally {
-        setIsServerChecking(false);
-      }
-    };
-    
-    checkStatus();
-  }, [checkServerStatus]);
-
-  // Don't show GameRoom while we're in board selection mode for joining a room
-  const shouldShowGameRoom = roomId && !inWaitingRoom;
-  const shouldShowWaitingRoom = roomId && inWaitingRoom;
-
-  return (
-    <div className="min-h-screen py-8 px-4 bg-gradient-to-b from-blue-50 to-purple-50">
-      <h1 className="text-4xl font-bold text-center mb-2 text-bingo-border">
-        Bingo Blitz
-      </h1>
-      
-      <div className="flex items-center justify-center mb-6">
-        {isServerChecking ? (
-          <Badge variant="outline" className="flex items-center gap-1">
-            <span className="block w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span> 
-            Checking Server...
-          </Badge>
-        ) : serverStatus === "online" ? (
-          <Badge variant="outline" className="bg-green-100 text-green-800 flex items-center gap-1">
-            <Wifi className="w-3 h-3" /> Online Mode
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="bg-red-100 text-red-800 flex items-center gap-1">
-            <WifiOff className="w-3 h-3" /> Local Mode
-          </Badge>
-        )}
+  if (gameMode === "computer") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-bingo-card via-bingo-cardStripe1 to-bingo-cardStripe2 flex flex-col items-center justify-center p-4">
+        <div className="mb-4">
+          <Button 
+            onClick={() => setGameMode("select")}
+            variant="outline"
+            className="border-bingo-border text-bingo-border hover:bg-bingo-border/10"
+          >
+            ← Back to Menu
+          </Button>
+        </div>
+        <ComputerGame />
       </div>
-      
-      {shouldShowWaitingRoom ? (
-        <WaitingRoom />
-      ) : shouldShowGameRoom ? (
-        <GameRoom />
-      ) : (
-        <>
-          <Tabs defaultValue="multiplayer" className="w-full max-w-4xl mx-auto">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="computer" className="flex gap-2 items-center">
-                <Computer className="w-4 h-4" />
-                Play with Computer
-              </TabsTrigger>
-              <TabsTrigger value="multiplayer" className="flex gap-2 items-center">
-                <Users className="w-4 h-4" />
-                Multiplayer
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="computer">
-              <ComputerGame />
-            </TabsContent>
-            <TabsContent value="multiplayer">
-              <RoomJoin />
-              <div className="mt-4">
-                <Alert className="bg-yellow-50 border-yellow-200">
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    {serverStatus === "online" 
-                      ? "Play online multiplayer with your friends! Share the Room ID with them to join the same game."
-                      : "Server is offline. All players must use the same device to play in local multiplayer mode."}
-                  </AlertDescription>
-                </Alert>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </>
-      )}
-    </div>
-  );
-};
+    );
+  }
 
-// Create a properly wrapped component for export
-const Index: React.FC = () => {
+  if (gameMode === "multiplayer") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-bingo-card via-bingo-cardStripe1 to-bingo-cardStripe2 flex flex-col items-center justify-center p-4">
+        <div className="mb-4">
+          <Button 
+            onClick={() => setGameMode("select")}
+            variant="outline"
+            className="border-bingo-border text-bingo-border hover:bg-bingo-border/10"
+          >
+            ← Back to Menu
+          </Button>
+        </div>
+        <RoomJoin />
+      </div>
+    );
+  }
+
   return (
-    <GameProvider>
-      <Game />
-    </GameProvider>
+    <div className="min-h-screen bg-gradient-to-br from-bingo-card via-bingo-cardStripe1 to-bingo-cardStripe2 flex items-center justify-center p-4">
+      <div className="w-full max-w-2xl mx-auto">
+        <Card className="border-bingo-border shadow-xl">
+          <CardHeader className="text-center bg-gradient-to-br from-bingo-border to-bingo-border/70 text-white rounded-t-lg">
+            <CardTitle className="text-5xl font-bold">BINGO!</CardTitle>
+            <CardDescription className="text-white/80 text-xl">
+              Choose your game mode
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-8 pb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card 
+                className="cursor-pointer hover:shadow-lg transition-all duration-200 border-2 hover:border-bingo-accent group"
+                onClick={() => setGameMode("computer")}
+              >
+                <CardContent className="flex flex-col items-center justify-center p-8 text-center">
+                  <Computer className="w-16 h-16 mb-4 text-bingo-border group-hover:text-bingo-accent transition-colors" />
+                  <h3 className="text-2xl font-bold text-bingo-text mb-2">Play with Computer</h3>
+                  <p className="text-bingo-text/70 text-sm">
+                    Practice your skills against an AI opponent
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card 
+                className="cursor-pointer hover:shadow-lg transition-all duration-200 border-2 hover:border-bingo-accent group"
+                onClick={() => setGameMode("multiplayer")}
+              >
+                <CardContent className="flex flex-col items-center justify-center p-8 text-center">
+                  <Users className="w-16 h-16 mb-4 text-bingo-border group-hover:text-bingo-accent transition-colors" />
+                  <h3 className="text-2xl font-bold text-bingo-text mb-2">Multiplayer</h3>
+                  <p className="text-bingo-text/70 text-sm">
+                    Play online with friends and family
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 };
 
