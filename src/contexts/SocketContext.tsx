@@ -31,13 +31,21 @@ export interface GameState {
 }
 
 // Helper functions
-const convertJsonToBingoCard = (jsonCard: any): number[][] => {
+const convertJsonToBingoCard = (jsonCard: any): number[] => {
   try {
     if (Array.isArray(jsonCard)) {
+      // If it's a 2D array, flatten it
+      if (Array.isArray(jsonCard[0])) {
+        return jsonCard.flat();
+      }
       return jsonCard;
     }
     if (typeof jsonCard === 'string') {
-      return JSON.parse(jsonCard);
+      const parsed = JSON.parse(jsonCard);
+      if (Array.isArray(parsed[0])) {
+        return parsed.flat();
+      }
+      return parsed;
     }
     return jsonCard || generateBingoBoard();
   } catch (error) {
@@ -55,10 +63,8 @@ const getColumnLetter = (number: number): string => {
   return 'B';
 };
 
-const markNumber = (card: number[][], number: number): number[][] => {
-  return card.map(row => 
-    row.map(cell => cell === number ? -1 : cell)
-  );
+const markNumber = (card: number[], number: number): number[] => {
+  return card.map(cell => cell === number ? -1 : cell);
 };
 
 interface SocketContextType {
@@ -297,8 +303,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           : [],
         currentCall: roomData.current_call 
           ? {
-              number: roomData.current_call.number,
-              column: roomData.current_call.column
+              number: (roomData.current_call as any).number,
+              column: (roomData.current_call as any).column
             } 
           : null,
         winner: null,
@@ -651,8 +657,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         callHistory,
         currentCall: roomData.current_call 
           ? {
-              number: roomData.current_call.number,
-              column: roomData.current_call.column
+              number: (roomData.current_call as any).number,
+              column: (roomData.current_call as any).column
             } 
           : null,
         winner: playersData ? playersData.find(p => p.is_winner) ? {

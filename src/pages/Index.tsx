@@ -4,7 +4,7 @@ import { GameProvider, useGame } from "@/contexts/GameContext";
 import RoomJoin from "@/components/RoomJoin";
 import GameRoom from "@/components/GameRoom";
 import ComputerGame from "@/components/ComputerGame";
-import WaitingRoom from "@/components/WaitingRoom"; // Import the new WaitingRoom component
+import WaitingRoom from "@/components/WaitingRoom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Computer, Users, Info, Wifi, WifiOff } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,7 +15,6 @@ import { toast } from "sonner";
 const Game: React.FC = () => {
   const { 
     roomId, 
-    showBoardSelectionDialog, 
     serverStatus, 
     inWaitingRoom,
     checkServerStatus 
@@ -44,8 +43,8 @@ const Game: React.FC = () => {
   }, [checkServerStatus]);
 
   // Don't show GameRoom while we're in board selection mode for joining a room
-  const shouldShowGameRoom = roomId && !showBoardSelectionDialog && !inWaitingRoom;
-  const shouldShowWaitingRoom = roomId && !showBoardSelectionDialog && inWaitingRoom;
+  const shouldShowGameRoom = roomId && !inWaitingRoom;
+  const shouldShowWaitingRoom = roomId && inWaitingRoom;
 
   return (
     <div className="min-h-screen py-8 px-4 bg-gradient-to-b from-blue-50 to-purple-50">
