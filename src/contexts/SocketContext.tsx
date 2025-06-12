@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { toast } from "sonner";
 import { generateBingoBoard } from "@/lib/bingo";
@@ -665,7 +664,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           id: playersData.find(p => p.is_winner)!.id,
           name: playersData.find(p => p.is_winner)!.name,
           board: convertJsonToBingoCard(playersData.find(p => p.is_winner)!.board),
-          markedCells: Array.isArray(playersData.find(p => p.is_winner)!.marked_cells) ? playersData.find(p => p.is_winner)!.marked_cells : Array(25).fill(false),
+          markedCells: Array.isArray(playersData.find(p => p.is_winner)!.marked_cells) ? Array(25).fill(false) : Array(25).fill(false),
           completedLines: playersData.find(p => p.is_winner)!.completed_lines || 0
         } : null : null,
         callInterval: 5000,

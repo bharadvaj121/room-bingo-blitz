@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { generateBingoBoard } from "@/lib/bingo";
 import { Player } from "@/types/game";
 import { SocketProvider, useSocket } from "@/contexts/SocketContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface GameContextType {
   roomId: string | null;
