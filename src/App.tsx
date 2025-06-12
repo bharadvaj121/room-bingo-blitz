@@ -1,27 +1,50 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { GameProvider, useGame } from "@/contexts/GameContext";
+import { Toaster } from "@/components/ui/sonner";
+import Lobby from "@/components/Lobby";
+import WaitingRoom from "@/components/WaitingRoom";
+import GameRoom from "@/components/GameRoom";
+import NotFound from "@/pages/NotFound";
+import "./App.css";
 
-const queryClient = new QueryClient();
+const GameContent: React.FC = () => {
+  const { roomId, gameStatus, isManualMode } = useGame();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <BrowserRouter>
-      <TooltipProvider>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+  // Show lobby if no room
+  if (!roomId) {
+    return <Lobby />;
+  }
+
+  // Show manual setup if in manual mode
+  if (isManualMode) {
+    return <GameRoom />;
+  }
+
+  // Show waiting room if game hasn't started
+  if (gameStatus === "waiting") {
+    return <WaitingRoom />;
+  }
+
+  // Show game room for playing/finished states
+  return <GameRoom />;
+};
+
+function App() {
+  return (
+    <GameProvider>
+      <Router>
+        <div className="min-h-screen bg-gradient-to-br from-bingo-card via-bingo-cardStripe1 to-bingo-cardStripe2 flex items-center justify-center p-4">
+          <Routes>
+            <Route path="/" element={<GameContent />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </div>
         <Toaster />
-        <Sonner position="top-right" closeButton />
-      </TooltipProvider>
-    </BrowserRouter>
-  </QueryClientProvider>
-);
+      </Router>
+    </GameProvider>
+  );
+}
 
 export default App;

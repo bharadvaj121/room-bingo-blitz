@@ -15,6 +15,8 @@ export type Database = {
           completed_lines: number | null
           created_at: string | null
           id: string
+          is_winner: boolean | null
+          joined_at: string | null
           marked_cells: Json
           name: string
           room_id: string | null
@@ -24,6 +26,8 @@ export type Database = {
           completed_lines?: number | null
           created_at?: string | null
           id?: string
+          is_winner?: boolean | null
+          joined_at?: string | null
           marked_cells: Json
           name: string
           room_id?: string | null
@@ -33,6 +37,8 @@ export type Database = {
           completed_lines?: number | null
           created_at?: string | null
           id?: string
+          is_winner?: boolean | null
+          joined_at?: string | null
           marked_cells?: Json
           name?: string
           room_id?: string | null
@@ -49,30 +55,48 @@ export type Database = {
       }
       bingo_rooms: {
         Row: {
+          board_size: number | null
+          call_history: Json | null
+          code: string
           created_at: string | null
-          game_status: string | null
+          created_by_user_id: string | null
+          current_call: Json | null
+          current_turn: string | null
+          host_id: string | null
           id: string
           is_manual_mode: boolean | null
           last_called_number: number | null
-          room_code: string
+          status: string | null
           winner_id: string | null
         }
         Insert: {
+          board_size?: number | null
+          call_history?: Json | null
+          code: string
           created_at?: string | null
-          game_status?: string | null
+          created_by_user_id?: string | null
+          current_call?: Json | null
+          current_turn?: string | null
+          host_id?: string | null
           id?: string
           is_manual_mode?: boolean | null
           last_called_number?: number | null
-          room_code: string
+          status?: string | null
           winner_id?: string | null
         }
         Update: {
+          board_size?: number | null
+          call_history?: Json | null
+          code?: string
           created_at?: string | null
-          game_status?: string | null
+          created_by_user_id?: string | null
+          current_call?: Json | null
+          current_turn?: string | null
+          host_id?: string | null
           id?: string
           is_manual_mode?: boolean | null
           last_called_number?: number | null
-          room_code?: string
+          status?: string | null
           winner_id?: string | null
         }
         Relationships: []
