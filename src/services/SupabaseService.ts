@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { generateBingoBoard } from "@/lib/bingo";
 
@@ -142,13 +141,17 @@ export class SupabaseService {
       console.log("Player created successfully:", player);
 
       // Update room with host_id and current_turn
-      await supabase
+      const { error: updateError } = await supabase
         .from("bingo_rooms")
         .update({ 
           host_id: player.id,
           current_turn: player.id
         })
         .eq("id", room.id);
+
+      if (updateError) {
+        console.error("Error updating room with host_id:", updateError);
+      }
 
       return { roomId: roomCode, playerId: player.id };
     } catch (error) {
@@ -536,7 +539,7 @@ export class SupabaseService {
     }
   }
 
-  // Set up realtime listeners
+  // Set up realtime listeners with better error handling
   static async setupRoomListeners(
     roomCode: string,
     callbacks: {
@@ -548,12 +551,30 @@ export class SupabaseService {
     }
   ): Promise<any> {
     try {
-      // Get initial room data
-      const initialData = await this.getRoomData(roomCode);
+      // Get initial room data with retry logic
+      let initialData = null;
+      let retries = 3;
+      
+      while (retries > 0 && !initialData) {
+        try {
+          initialData = await this.getRoomData(roomCode);
+          if (initialData) break;
+        } catch (error) {
+          console.error(`Failed to get room data, retries left: ${retries - 1}`, error);
+        }
+        retries--;
+        if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+      
       if (!initialData) {
-        console.error("Failed to get initial room data");
+        console.error("Failed to get initial room data after retries");
         return null;
       }
+
+      // Call initial room update
+      callbacks.onRoomUpdate(initialData);
 
       // Subscribe to room changes
       const roomChannel = supabase

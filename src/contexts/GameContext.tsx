@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
 import { toast } from "sonner";
@@ -49,7 +48,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [playerName]);
 
-  // Set up realtime listeners
+  // Set up realtime listeners with delay to ensure room is created
   useEffect(() => {
     if (subscriptions) {
       subscriptions.unsubscribe();
@@ -62,6 +61,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     const setupListeners = async () => {
       try {
+        // Add a small delay to ensure room is fully created
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         const listeners = await SupabaseService.setupRoomListeners(roomId, {
           onRoomUpdate: handleRoomUpdate,
           onPlayerJoined: handlePlayerJoined,
@@ -79,14 +81,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
     
-    setupListeners();
+    // Only setup listeners if we have a playerId (meaning we've joined/created successfully)
+    if (playerId) {
+      setupListeners();
+    }
     
     return () => {
       if (subscriptions) {
         subscriptions.unsubscribe();
       }
     };
-  }, [roomId, serverStatus]);
+  }, [roomId, serverStatus, playerId]);
 
   // Realtime event handlers
   const handleRoomUpdate = (data: SupabaseRoomData) => {
@@ -213,16 +218,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (result) {
           setRoomId(result.roomId);
           setPlayerId(result.playerId);
+          setIsHost(true);
+          setInWaitingRoom(true);
           
+          // Get initial room data to populate the UI immediately
           const roomData = await SupabaseService.getRoomData(result.roomId);
-          
           if (roomData) {
             handleRoomUpdate(roomData);
-            setIsHost(true);
-            setInWaitingRoom(true);
-            
-            toast.success("Room created successfully! Share the code with your friends.");
           }
+          
+          toast.success("Room created successfully! Share the code with your friends.");
         } else {
           toast.error("Failed to create room. Please try again.");
           createOfflineRoom(isManual ? Array(25).fill(0) : generateBingoBoard());
