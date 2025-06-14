@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { generateBingoBoard, checkWin } from "@/lib/bingo";
 import { toast } from "sonner";
@@ -5,15 +6,11 @@ import { SupabaseService } from "@/services/SupabaseService";
 import { Player, GameStatus, ServerStatus, GameContextProps } from "@/types/game";
 import type { SupabaseRoomData } from "@/services/SupabaseService";
 
-// Create context
 const GameContext = createContext<GameContextProps | undefined>(undefined);
 
-// Generate player ID (used for local play only)
 const generatePlayerId = () => `player-${Math.random().toString(36).substring(2, 9)}`;
 
-// Provider component
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // State
   const [playerName, setPlayerName] = useState<string>("");
   const [roomId, setRoomId] = useState<string | null>(null);
   const [roomDbId, setRoomDbId] = useState<string | null>(null);
@@ -32,41 +29,37 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isHost, setIsHost] = useState<boolean>(false);
   const [inWaitingRoom, setInWaitingRoom] = useState<boolean>(false);
   
-  // Load game state from localStorage on component mount
+  // Load player name from localStorage
   useEffect(() => {
     try {
       const storedPlayerName = localStorage.getItem("bingoPlayerName");
       if (storedPlayerName) {
         setPlayerName(storedPlayerName);
       }
-      
       checkServerStatus();
     } catch (error) {
-      console.error("Error loading game state from localStorage:", error);
+      console.error("Error loading game state:", error);
     }
   }, []);
 
-  // Store player name in localStorage when it changes
+  // Store player name in localStorage
   useEffect(() => {
     if (playerName) {
       localStorage.setItem("bingoPlayerName", playerName);
     }
   }, [playerName]);
 
-  // Set up listeners for a room on roomId change
+  // Set up realtime listeners
   useEffect(() => {
-    // Clean up previous subscriptions
     if (subscriptions) {
       subscriptions.unsubscribe();
       setSubscriptions(null);
     }
     
-    // If no room ID or server is offline, don't set up listeners
     if (!roomId || serverStatus === "offline") {
       return;
     }
     
-    // Set up listeners for the room
     const setupListeners = async () => {
       try {
         const listeners = await SupabaseService.setupRoomListeners(roomId, {
@@ -82,7 +75,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (error) {
         console.error("Error setting up room listeners:", error);
-        toast.error("Failed to connect to real-time updates. Some features may not work properly.");
+        toast.error("Failed to connect to real-time updates.");
       }
     };
     
@@ -95,25 +88,23 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [roomId, serverStatus]);
 
-  // Handlers for real-time events
+  // Realtime event handlers
   const handleRoomUpdate = (data: SupabaseRoomData) => {
     console.log("Room update received:", data);
     
-    if (data.room.room_code === roomId) {
-      // Convert Supabase players to our Player format
+    if (data.room.code === roomId) {
       const updatedPlayers: Player[] = data.players.map((p, index) => ({
         id: p.id,
         name: p.name || `Player ${index + 1}`,
         board: p.board as number[],
         markedCells: p.marked_cells as boolean[],
         completedLines: p.completed_lines,
-        isHost: index === 0 // First player is host
+        isHost: p.id === data.room.host_id
       }));
       
-      // Update players list
       setPlayers(updatedPlayers);
+      setRoomDbId(data.room.id);
       
-      // Update current player
       if (playerId) {
         const player = updatedPlayers.find(p => p.id === playerId);
         if (player) {
@@ -122,19 +113,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       
-      // Update game status
-      setGameStatus(data.room.game_status as GameStatus);
-      setRoomDbId(data.room.id);
+      setGameStatus(data.room.status as GameStatus);
       
-      // Handle state transitions
-      if (data.room.game_status === "playing") {
+      if (data.room.status === "playing") {
         setInWaitingRoom(false);
-      } else if (data.room.game_status === "waiting") {
+      } else if (data.room.status === "waiting") {
         setInWaitingRoom(true);
-        setWinner(null); // Clear winner when back to waiting
+        setWinner(null);
       }
       
-      // Update winner if there is one
       if (data.winner) {
         const winnerPlayer: Player = {
           id: data.winner.id,
@@ -147,7 +134,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setWinner(winnerPlayer);
       }
       
-      // Update last called number if there is one
       if (data.room.last_called_number) {
         setLastClickedNumber(data.room.last_called_number);
       }
@@ -180,7 +166,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Check server status function with better handling
+  // Check server status
   const checkServerStatus = useCallback(async (): Promise<boolean> => {
     setServerStatus("checking");
     
@@ -195,18 +181,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Handle player name change
   const handlePlayerNameChange = (name: string) => {
     setPlayerName(name);
   };
 
-  // Handle room ID change
   const handleRoomIdChange = (id: string) => {
     console.log("Setting room ID:", id);
     setRoomId(id);
   };
 
-  // Create a new room with improved lifecycle
+  // Create room
   const createRoom = async (isManual: boolean = false) => {
     console.log("Creating room with manual mode:", isManual);
     
@@ -222,7 +206,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (isOnline) {
       try {
-        // Reset state first
         resetLocalState();
         
         const result = await SupabaseService.createRoom(playerName, isManual);
@@ -231,7 +214,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setRoomId(result.roomId);
           setPlayerId(result.playerId);
           
-          // Get initial room data
           const roomData = await SupabaseService.getRoomData(result.roomId);
           
           if (roomData) {
@@ -239,7 +221,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsHost(true);
             setInWaitingRoom(true);
             
-            toast.success("Room created successfully! Share the code with your friends to join.");
+            toast.success("Room created successfully! Share the code with your friends.");
           }
         } else {
           toast.error("Failed to create room. Please try again.");
@@ -256,7 +238,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
   
-  // Helper to reset local state
   const resetLocalState = () => {
     setPlayers([]);
     setCurrentPlayer(null);
@@ -267,7 +248,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setInWaitingRoom(false);
   };
   
-  // Helper for creating offline rooms
   const createOfflineRoom = (playerBoard: number[]) => {
     const localPlayerId = generatePlayerId();
     const player: Player = {
@@ -290,7 +270,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log("Room created offline with player:", player);
   };
   
-  // Start game (host only) with better validation
+  // Start game
   const startGame = async () => {
     if (!isHost) {
       toast.error("Only the host can start the game");
@@ -317,21 +297,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.error("Failed to start game. Please try again.");
       }
     } else {
-      // In offline mode, simply update the game status
       setGameStatus("playing");
       setInWaitingRoom(false);
       toast.success("Game started!");
     }
   };
   
-  // Add a manual number
   const addManualNumber = (num: number) => {
     if (manualNumbers.length < 25 && !manualNumbers.includes(num)) {
       setManualNumbers(prev => [...prev, num]);
     }
   };
   
-  // Join an existing room with better error handling
+  // Join room
   const joinRoom = () => {
     if (!playerName || playerName.trim() === "") {
       toast.error("Please enter your name");
@@ -344,13 +322,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     console.log("Joining room with ID:", roomId);
-    
-    // Non-hosts always get random boards
     setIsManualMode(false);
     completeJoinRoom(false);
   };
   
-  // Complete join process with better error handling
+  // Complete join process
   const completeJoinRoom = async (isManual: boolean) => {
     const playerBoard = generateBingoBoard();
     
@@ -377,14 +353,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log("Got room data:", roomData);
             handleRoomUpdate(roomData);
             
-            // Find current player and set host status
             const player = roomData.players.find(p => p.id === result.playerId);
             if (player) {
-              setIsHost(roomData.players.indexOf(player) === 0);
+              setIsHost(player.id === roomData.room.host_id);
             }
             
-            // Set waiting room state based on game status
-            setInWaitingRoom(roomData.room.game_status === "waiting");
+            setInWaitingRoom(roomData.room.status === "waiting");
             
             toast.success("Joined room successfully!");
           } else {
@@ -409,7 +383,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setShowBoardSelectionDialog(false);
   };
   
-  // Helper for joining offline rooms
   const joinOfflineRoom = (playerBoard: number[]) => {
     const localPlayerId = generatePlayerId();
     const player: Player = {
@@ -436,7 +409,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setInWaitingRoom(true);
   };
   
-  // Leave the current room with cleanup
+  // Leave room
   const leaveRoom = async () => {
     if (serverStatus === "online" && playerId) {
       try {
@@ -446,13 +419,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     
-    // Clean up subscriptions
     if (subscriptions) {
       subscriptions.unsubscribe();
       setSubscriptions(null);
     }
     
-    // Reset all state
     setRoomId(null);
     setRoomDbId(null);
     setPlayerId(null);
@@ -470,7 +441,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log("Left room");
   };
   
-  // Mark a cell on the current player's board
+  // Mark cell
   const markCell = async (index: number) => {
     if (!currentPlayer || gameStatus !== "playing") {
       console.log("Cannot mark cell: no current player or game not in playing state");
@@ -638,7 +609,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     toast.info(`Number called: ${number}`);
   };
   
-  // Context value
   const contextValue: GameContextProps = {
     playerName,
     roomId,
@@ -676,7 +646,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-// Hook for using the game context
 export const useGame = () => {
   const context = useContext(GameContext);
   if (context === undefined) {
