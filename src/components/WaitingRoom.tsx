@@ -1,155 +1,138 @@
 
-import React, { useEffect } from "react";
-import { useSocket } from "@/contexts/SocketContext";
+import React, { useState } from "react";
+import { useGame } from "@/contexts/GameContext";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Copy, Users, Clock, Play } from "lucide-react";
 import { toast } from "sonner";
 
 const WaitingRoom: React.FC = () => {
-  const { gameState, leaveRoom, startGame, refreshRoomData } = useSocket();
-  const { room, isHost } = gameState;
+  const { 
+    roomId, 
+    players, 
+    isHost, 
+    playerName,
+    startGame,
+    leaveRoom
+  } = useGame();
 
-  useEffect(() => {
-    if (!room) return;
+  const [copied, setCopied] = useState(false);
 
-    console.log("Setting up real-time subscription for room:", room.id);
+  const copyRoomIdToClipboard = () => {
+    if (!roomId) return;
     
-    // First refresh to make sure we have the latest data
-    refreshRoomData();
-    
-    // Get the database ID for the room using the room code
-    const fetchRoomDbId = async () => {
-      const { data: roomData, error: roomError } = await supabase
-        .from('bingo_rooms')
-        .select('id')
-        .eq('code', room.id)
-        .single();
-        
-      if (roomError) {
-        console.error("Error fetching room data:", roomError);
-        return;
-      }
-      
-      console.log("Room DB ID for subscriptions:", roomData.id);
-      
-      // Set up real-time subscription
-      const roomChannel = supabase
-        .channel('room-updates')
-        .on(
-          'postgres_changes',
-          { 
-            event: '*', 
-            schema: 'public', 
-            table: 'bingo_players',
-            filter: `room_id=eq.${roomData.id}` 
-          },
-          (payload) => {
-            console.log("Player change detected:", payload);
-            refreshRoomData();
-            
-            if (payload.eventType === 'INSERT') {
-              const newPlayer = payload.new;
-              toast.success(`${newPlayer.name} joined the room`);
-            }
-          }
-        )
-        .on(
-          'postgres_changes',
-          { 
-            event: '*', 
-            schema: 'public', 
-            table: 'bingo_rooms',
-            filter: `id=eq.${roomData.id}` 
-          },
-          (payload) => {
-            console.log("Room change detected:", payload);
-            refreshRoomData();
-          }
-        )
-        .subscribe((status) => {
-          console.log("Subscription status:", status);
-        });
-      
-      return () => {
-        console.log("Cleaning up subscription");
-        supabase.removeChannel(roomChannel);
-      };
-    };
-    
-    fetchRoomDbId();
-    
-    // Set up polling as backup
-    const pollingInterval = setInterval(() => {
-      refreshRoomData();
-    }, 5000);
-    
-    return () => {
-      clearInterval(pollingInterval);
-    };
-  }, [room?.id, refreshRoomData]);
-
-  if (!room) return null;
+    navigator.clipboard.writeText(roomId)
+      .then(() => {
+        setCopied(true);
+        toast.success("Room ID copied to clipboard!");
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(err => console.error("Failed to copy room ID:", err));
+  };
 
   return (
-    <Card className="w-full max-w-md mx-auto border-bingo-border/20 shadow-lg">
-      <CardHeader className="bg-bingo-border/10 pb-2">
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-xl">Waiting Room</CardTitle>
-          <span className="text-sm font-mono bg-bingo-border/20 px-2 py-1 rounded">
-            Room: {room.id}
-          </span>
+    <Card className="w-full max-w-3xl mx-auto bg-bingo-card border-4 border-bingo-border shadow-lg">
+      <CardHeader className="text-center border-b border-bingo-border/30 pb-4">
+        <CardTitle className="text-3xl font-bold text-bingo-border">Waiting Room</CardTitle>
+        <div className="mt-2 flex items-center justify-center">
+          <span className="text-lg font-semibold mr-2">Room Code:</span>
+          <div className="flex items-center">
+            <span className="text-xl font-bold tracking-wider bg-bingo-border/10 px-3 py-1 rounded-l-md">
+              {roomId}
+            </span>
+            <Button 
+              variant="outline"
+              size="icon"
+              className="rounded-l-none border-l-0 h-10"
+              onClick={copyRoomIdToClipboard}
+            >
+              <Copy className={`h-4 w-4 ${copied ? "text-green-600" : ""}`} />
+            </Button>
+          </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-4">
-        <div className="mb-4">
-          <h3 className="text-sm font-medium text-gray-500 mb-1">Players ({room.players.length})</h3>
-          <ul className="divide-y">
-            {room.players.map((player) => (
-              <li key={player.id} className="py-2 flex items-center justify-between">
-                <span>
-                  {player.name} 
-                  {player.id === room.host && (
-                    <span className="ml-2 text-xs bg-bingo-accent text-white px-1 py-0.5 rounded">
+      <CardContent className="py-6">
+        <div className="mb-6 flex items-center justify-center">
+          <div className="bg-bingo-accent/20 py-2 px-4 rounded-full flex items-center">
+            <Users className="h-5 w-5 mr-2 text-bingo-border" />
+            <span className="font-semibold">{players.length} Player{players.length !== 1 ? 's' : ''} in Room</span>
+          </div>
+        </div>
+
+        <div className="border rounded-lg overflow-hidden">
+          <div className="bg-bingo-border text-white px-4 py-2 font-medium">
+            Players
+          </div>
+          <ul className="divide-y divide-bingo-border/10">
+            {players.map((player, index) => (
+              <li 
+                key={player.id} 
+                className="px-4 py-3 flex items-center justify-between"
+              >
+                <div className="flex items-center">
+                  <span className="font-medium mr-2">{index + 1}.</span>
+                  <span>{player.name}</span>
+                  {player.isHost && (
+                    <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                       Host
                     </span>
                   )}
-                </span>
-                {player.id === gameState.player?.id && (
-                  <span className="text-xs text-gray-400">(You)</span>
-                )}
+                  {player.name === playerName && (
+                    <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      You
+                    </span>
+                  )}
+                </div>
+              </li>
+            ))}
+            {/* Empty slots */}
+            {Array.from({ length: Math.max(0, 5 - players.length) }).map((_, index) => (
+              <li 
+                key={`empty-${index}`} 
+                className="px-4 py-3 text-gray-400 italic"
+              >
+                Waiting for player...
               </li>
             ))}
           </ul>
         </div>
-        
-        <div className="text-sm text-gray-500 mt-4 bg-yellow-50 p-3 rounded">
-          <p className="font-medium">Game Rules:</p>
-          <ul className="list-disc list-inside mt-1">
-            <li>Mark numbers on your card as they are called</li>
-            <li>First player to complete a line wins</li>
-            <li>Don't forget to shout "BINGO!" when you win</li>
-          </ul>
-        </div>
+
+        {isHost ? (
+          <div className="mt-6 text-center">
+            <p className="mb-4 text-sm text-gray-600">
+              Share the room code with other players so they can join. You can start the game once at least one other player has joined.
+            </p>
+            <Button
+              onClick={startGame}
+              disabled={players.length < 2}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 flex items-center gap-2"
+            >
+              <Play className="h-4 w-4" />
+              Start Game
+            </Button>
+            {players.length < 2 && (
+              <p className="mt-2 text-sm text-yellow-600">
+                Need at least 2 players to start
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="mt-6 text-center">
+            <div className="flex items-center justify-center gap-2 text-gray-600">
+              <Clock className="h-5 w-5" />
+              <span>Waiting for host to start the game...</span>
+            </div>
+          </div>
+        )}
       </CardContent>
-      <CardFooter className="flex justify-between border-t pt-4">
-        <Button 
-          variant="outline" 
+      <CardFooter className="border-t border-bingo-border/30 pt-4 flex justify-center">
+        <Button
           onClick={leaveRoom}
-          className="text-bingo-border border-bingo-border/30 hover:bg-bingo-border/10"
+          variant="outline"
+          className="border-bingo-border text-bingo-border hover:bg-bingo-border/10"
         >
           Leave Room
         </Button>
-        
-        {isHost && (
-          <Button 
-            onClick={startGame}
-            disabled={room.players.length < 2}
-            className="bg-bingo-accent hover:bg-bingo-accent/80"
-          >
-            Start Game
-          </Button>
-        )}
       </CardFooter>
     </Card>
   );

@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useGame } from "@/contexts/GameContext";
 import { cn } from "@/lib/utils";
@@ -22,7 +21,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
   isWinner = false,
   onCellClick
 }) => {
-  const { gameStatus, winner } = useGame();
+  const { markCell, gameStatus, winner, lastClickedPlayer, lastClickedNumber } = useGame();
 
   const handleCellClick = (index: number) => {
     // Log click for debugging
@@ -54,7 +53,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
     
     console.log("Marking cell in game context");
     // Mark the cell in the game context (for multiplayer)
-    // markCell(index);
+    markCell(index);
   };
 
   const isGameWon = gameStatus === "finished" && winner !== null;
@@ -100,12 +99,23 @@ const BingoBoard: React.FC<BingoBoardProps> = ({
           </div>
         )}
         
+        {/* Show last clicked player name if available */}
+        {lastClickedPlayer && lastClickedNumber && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none animate-fade-out">
+            <div className="text-xl sm:text-2xl font-bold text-center px-4 py-2 rounded-lg 
+                        bg-bingo-accent/70 transform rotate-[-10deg] animate-bounce-once">
+              {lastClickedPlayer} clicked {lastClickedNumber}!
+            </div>
+          </div>
+        )}
+        
         {board.map((number, index) => (
           <button
             key={index}
             className={cn(
               "bingo-cell relative",
-              markedCells[index] ? "marked" : ""
+              markedCells[index] ? "marked" : "",
+              number === lastClickedNumber && "bg-bingo-accent/50"
             )}
             disabled={false} // Remove the disabled attribute to allow clicking
             onClick={() => handleCellClick(index)}
