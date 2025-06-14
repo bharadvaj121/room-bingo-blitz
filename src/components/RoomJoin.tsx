@@ -58,21 +58,15 @@ const RoomJoin: React.FC = () => {
       setIsLoading(true);
       setInputError("");
       
-      // Generate a random room ID for display
-      const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-      
-      // Set the room ID in context first
-      setRoomId(newRoomId);
-      
       // Create room
       await createRoom(isManual);
       setShowCreateOptions(false);
       
       toast.success("Room created successfully!");
-      setIsLoading(false);
     } catch (error) {
       console.error("Error creating room:", error);
       toast.error("Failed to create room. Please try again.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -107,11 +101,17 @@ const RoomJoin: React.FC = () => {
       // Join room - this is now properly async
       await joinRoom();
       
-      setIsLoading(false);
+      console.log("Successfully joined room:", trimmedRoomId);
     } catch (error: any) {
       console.error("Error joining room:", error);
-      setInputError(error.message || "Failed to join room");
-      toast.error(error.message || "Failed to join room. Please try again.");
+      const errorMessage = error.message || "Failed to join room";
+      setInputError(errorMessage);
+      toast.error(errorMessage);
+      
+      // Clear the room ID from context if join failed
+      setRoomId(null);
+      setLocalRoomId("");
+    } finally {
       setIsLoading(false);
     }
   };
