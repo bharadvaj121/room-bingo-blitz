@@ -165,24 +165,44 @@ export class SupabaseService {
     try {
       console.log("Attempting to join room with code:", roomCode);
 
-      // Get the room
-      const { data: room, error: roomError } = await supabase
+      // First, let's check if there are any rooms with this code
+      const { data: allRooms, error: allRoomsError } = await supabase
         .from("bingo_rooms")
-        .select("*")
-        .eq("code", roomCode)
-        .single();
+        .select("*");
 
-      if (roomError || !room) {
-        console.error("Room not found:", roomError);
-        return null;
+      if (allRoomsError) {
+        console.error("Error fetching all rooms:", allRoomsError);
+        throw new Error("Database connection error");
       }
 
+      console.log("All rooms in database:", allRooms);
+      console.log("Looking for room with code:", roomCode);
+
+      // Get the room with exact case-insensitive match
+      const { data: rooms, error: roomError } = await supabase
+        .from("bingo_rooms")
+        .select("*")
+        .ilike("code", roomCode);
+
+      if (roomError) {
+        console.error("Room lookup error:", roomError);
+        throw new Error("Failed to lookup room");
+      }
+
+      console.log("Found rooms:", rooms);
+
+      if (!rooms || rooms.length === 0) {
+        console.log("No room found with code:", roomCode);
+        throw new Error("Room not found. Please check the room code.");
+      }
+
+      const room = rooms[0];
       console.log("Found room:", room);
 
       // Check if room is joinable
       if (room.status === "playing") {
         console.log("Room is currently playing");
-        return null;
+        throw new Error("Room is currently in progress. Cannot join now.");
       }
 
       // Reset room if finished
@@ -198,12 +218,14 @@ export class SupabaseService {
 
       if (countError) {
         console.error("Error getting player count:", countError);
-        return null;
+        throw new Error("Failed to check room capacity");
       }
+
+      console.log("Current player count:", count);
 
       if (count && count >= 5) {
         console.log("Room is full");
-        return null;
+        throw new Error("Room is full (maximum 5 players)");
       }
 
       // Check if name is taken
@@ -216,7 +238,7 @@ export class SupabaseService {
 
       if (existingPlayer) {
         console.log("Player name already exists in room");
-        return null;
+        throw new Error("Player name already exists in this room");
       }
 
       // Create new player
@@ -235,14 +257,15 @@ export class SupabaseService {
 
       if (playerError) {
         console.error("Error creating player:", playerError);
-        return null;
+        throw new Error("Failed to join room. Please try again.");
       }
 
       console.log("Player joined successfully:", player);
       return { playerId: player.id, roomDbId: room.id };
     } catch (error) {
       console.error("Error joining room:", error);
-      return null;
+      // Re-throw the error so it can be caught by the calling function
+      throw error;
     }
   }
 
