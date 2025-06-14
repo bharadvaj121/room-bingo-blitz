@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useGame } from "@/contexts/GameContext";
 import { Button } from "@/components/ui/button";
@@ -40,7 +39,8 @@ const RoomJoin: React.FC = () => {
 
   // Safely handle room ID changes
   const handleRoomIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalRoomId(e.target.value);
+    const value = e.target.value.toUpperCase().trim();
+    setLocalRoomId(value);
     // Clear error when user starts typing
     if (inputError) setInputError("");
   };
@@ -55,21 +55,19 @@ const RoomJoin: React.FC = () => {
 
     try {
       setIsLoading(true);
-      // Generate a random room ID
+      setInputError("");
+      
+      // Generate a random room ID for display
       const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
       
-      // Set the room ID in context first - this is important!
+      // Set the room ID in context first
       setRoomId(newRoomId);
       
-      // Wait a bit to ensure room ID is set before creating room
-      setTimeout(() => {
-        // Create room
-        createRoom(isManual);
-        setShowCreateOptions(false);
-        
-        toast.success("Room created successfully!");
-        setIsLoading(false);
-      }, 100);
+      // Create room
+      await createRoom(isManual);
+      setShowCreateOptions(false);
+      
+      setIsLoading(false);
     } catch (error) {
       console.error("Error creating room:", error);
       toast.error("Failed to create room. Please try again.");
@@ -78,7 +76,7 @@ const RoomJoin: React.FC = () => {
   };
 
   // Handle joining a room with proper error validation
-  const handleJoinRoom = () => {
+  const handleJoinRoom = async () => {
     // Clear any existing errors first
     setInputError("");
     
@@ -99,18 +97,15 @@ const RoomJoin: React.FC = () => {
     
     try {
       setIsLoading(true);
+      setInputError("");
       
-      // Set the room ID in context first - this is important!
+      // Set the room ID in context first
       setRoomId(trimmedRoomId);
       
-      // Wait a bit to ensure room ID is set before joining room
-      setTimeout(() => {
-        // Join room - non-hosts always get random boards
-        joinRoom();
-        
-        toast.success("Joining room...");
-        setIsLoading(false);
-      }, 100);
+      // Join room
+      await joinRoom();
+      
+      setIsLoading(false);
     } catch (error) {
       console.error("Error joining room:", error);
       setInputError("Failed to join room");

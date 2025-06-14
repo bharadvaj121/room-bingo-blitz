@@ -345,13 +345,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isOnline) {
       try {
         console.log("Attempting to join room online with room ID:", roomId);
+        resetLocalState();
+        
         const result = await SupabaseService.joinRoom(roomId, playerName, playerBoard);
         
         if (result) {
           console.log("Join room successful, got playerId:", result.playerId);
           setPlayerId(result.playerId);
           setRoomDbId(result.roomDbId);
+          setIsHost(false);
+          setInWaitingRoom(true);
           
+          // Get initial room data to populate the UI immediately
           const roomData = await SupabaseService.getRoomData(roomId);
           
           if (roomData) {
@@ -362,8 +367,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (player) {
               setIsHost(player.id === roomData.room.host_id);
             }
-            
-            setInWaitingRoom(roomData.room.status === "waiting");
             
             toast.success("Joined room successfully!");
           } else {
