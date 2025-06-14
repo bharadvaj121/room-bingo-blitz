@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useGame } from "@/contexts/GameContext";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ const RoomJoin: React.FC = () => {
       await createRoom(isManual);
       setShowCreateOptions(false);
       
+      toast.success("Room created successfully!");
       setIsLoading(false);
     } catch (error) {
       console.error("Error creating room:", error);
@@ -102,14 +104,14 @@ const RoomJoin: React.FC = () => {
       // Set the room ID in context first
       setRoomId(trimmedRoomId);
       
-      // Join room
+      // Join room - this is now properly async
       await joinRoom();
       
       setIsLoading(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error joining room:", error);
-      setInputError("Failed to join room");
-      toast.error("Failed to join room. Please try again.");
+      setInputError(error.message || "Failed to join room");
+      toast.error(error.message || "Failed to join room. Please try again.");
       setIsLoading(false);
     }
   };

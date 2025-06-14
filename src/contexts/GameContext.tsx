@@ -274,7 +274,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     console.log("Room created offline with player:", player);
   };
-  
+
   // Start game
   const startGame = async () => {
     if (!isHost) {
@@ -314,74 +314,63 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
   
-  // Join room
-  const joinRoom = () => {
+  // Join room - make this properly async
+  const joinRoom = async (): Promise<void> => {
     if (!playerName || playerName.trim() === "") {
-      toast.error("Please enter your name");
-      return;
+      throw new Error("Please enter your name");
     }
     
     if (!roomId || roomId.trim() === "") {
-      toast.error("Please enter a room ID");
-      return;
+      throw new Error("Please enter a room ID");
     }
     
     console.log("Joining room with ID:", roomId);
     setIsManualMode(false);
-    completeJoinRoom(false);
+    await completeJoinRoom(false);
   };
   
   // Complete join process
-  const completeJoinRoom = async (isManual: boolean) => {
+  const completeJoinRoom = async (isManual: boolean): Promise<void> => {
     const playerBoard = generateBingoBoard();
     
     if (!roomId) {
-      toast.error("Room ID not set");
-      return;
+      throw new Error("Room ID not set");
     }
     
     const isOnline = await checkServerStatus();
     
     if (isOnline) {
-      try {
-        console.log("Attempting to join room online with room ID:", roomId);
-        resetLocalState();
+      console.log("Attempting to join room online with room ID:", roomId);
+      resetLocalState();
+      
+      const result = await SupabaseService.joinRoom(roomId, playerName, playerBoard);
+      
+      if (result) {
+        console.log("Join room successful, got playerId:", result.playerId);
+        setPlayerId(result.playerId);
+        setRoomDbId(result.roomDbId);
+        setIsHost(false);
+        setInWaitingRoom(true);
         
-        const result = await SupabaseService.joinRoom(roomId, playerName, playerBoard);
+        // Get initial room data to populate the UI immediately
+        const roomData = await SupabaseService.getRoomData(roomId);
         
-        if (result) {
-          console.log("Join room successful, got playerId:", result.playerId);
-          setPlayerId(result.playerId);
-          setRoomDbId(result.roomDbId);
-          setIsHost(false);
-          setInWaitingRoom(true);
+        if (roomData) {
+          console.log("Got room data:", roomData);
+          handleRoomUpdate(roomData);
           
-          // Get initial room data to populate the UI immediately
-          const roomData = await SupabaseService.getRoomData(roomId);
-          
-          if (roomData) {
-            console.log("Got room data:", roomData);
-            handleRoomUpdate(roomData);
-            
-            const player = roomData.players.find(p => p.id === result.playerId);
-            if (player) {
-              setIsHost(player.id === roomData.room.host_id);
-            }
-            
-            toast.success("Joined room successfully!");
-          } else {
-            console.error("Failed to get room data after joining");
-            toast.error("Failed to get room data after joining");
-            joinOfflineRoom(playerBoard);
+          const player = roomData.players.find(p => p.id === result.playerId);
+          if (player) {
+            setIsHost(player.id === roomData.room.host_id);
           }
+          
+          toast.success("Joined room successfully!");
         } else {
-          toast.error("Failed to join room. Room may not exist, be full, or in progress.");
-          joinOfflineRoom(playerBoard);
+          console.error("Failed to get room data after joining");
+          throw new Error("Failed to get room data after joining");
         }
-      } catch (error) {
-        console.error("Error joining room:", error);
-        toast.error("Failed to join room. Falling back to offline mode.");
-        joinOfflineRoom(playerBoard);
+      } else {
+        throw new Error("Failed to join room. Room may not exist, be full, or in progress.");
       }
     } else {
       console.log("Server offline, joining offline room");
@@ -416,7 +405,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPlayerId(localPlayerId);
     setInWaitingRoom(true);
   };
-  
+
   // Leave room
   const leaveRoom = async () => {
     if (serverStatus === "online" && playerId) {
